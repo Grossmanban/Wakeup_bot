@@ -15,6 +15,9 @@ export function manageSections(me: Me): Section[] {
   if (can("registrations.review") || can("name_changes.review"))
     s.push({ id: "requests", title: "Заявки", hint: "Регистрация и смена ФИО" });
   if (can("users.view") || lead) s.push({ id: "users", title: "Сотрудники", hint: "Профили, роли, права" });
+  if (can("invites.staff"))
+    s.push({ id: "staffInvites", title: "Пригласить сотрудника", hint: "Ссылки для действующих сотрудников" });
+  if (can("access_log.view")) s.push({ id: "accessLog", title: "Попытки доступа", hint: "Кто писал боту без приглашения" });
   if (me.is_owner || can("tasks.manage") || can("tasks.import"))
     s.push({ id: "products", title: "Продукты", hint: "Настройки, ставки, типы заданий" });
   if (can("tasks.import")) s.push({ id: "import", title: "Импорт заданий", hint: "Загрузка из Excel" });

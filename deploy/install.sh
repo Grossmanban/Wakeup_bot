@@ -301,15 +301,10 @@ for _ in $(seq 1 60); do
 done
 [ -n "$API_OK" ] || warn "API не ответил за 3 минуты. Журнал: docker compose -p $PROJECT logs --tail=50 api"
 
-# Кнопка меню бота сразу открывает Mini App.
-if curl -fsS --max-time 15 "https://api.telegram.org/bot$BOT_TOKEN/setChatMenuButton" \
-  -H 'Content-Type: application/json' \
-  -d "{\"menu_button\":{\"type\":\"web_app\",\"text\":\"Открыть\",\"web_app\":{\"url\":\"$BASE_URL/\"}}}" \
-  >/dev/null 2>&1; then
-  ok "кнопка меню бота → $BASE_URL/"
-else
-  warn "не удалось задать кнопку меню бота"
-fi
+# Скрытый режим: общей кнопки меню нет (её видел бы любой, кто откроет бота). Бот ставит
+# кнопку в чате каждого человека с доступом, когда тот нажимает /start.
+curl -fsS --max-time 15 "https://api.telegram.org/bot$BOT_TOKEN/setChatMenuButton" \
+  -H 'Content-Type: application/json' -d '{"menu_button":{"type":"default"}}' >/dev/null 2>&1 || true
 
 echo "  Жду HTTPS-сертификат…"
 WEB_OK=""
@@ -329,7 +324,9 @@ fi
 bold "Готово"
 cat <<EOF
   Mini App: $BASE_URL/
-  В @BotFather → Bot Settings → Configure Mini App укажите этот адрес.
+  Бот работает в скрытом режиме: посторонним он не отвечает. В @BotFather → Bot Settings →
+  Configure Mini App главное мини-приложение лучше выключить — иначе кнопка «Открыть» видна
+  в профиле бота всем (внутри посторонний всё равно увидит только «Доступ по приглашению»).
   Откройте @$BOT_USERNAME в Telegram, нажмите /start → «Открыть приложение».
   Владелец входит без заявки и один раз указывает ФИО.
 

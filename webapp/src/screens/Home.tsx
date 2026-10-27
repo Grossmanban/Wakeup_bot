@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Me } from "../api";
 import { FallbackBack, NavProvider, Screen, useNav } from "../nav";
 import { load, save } from "../storage";
+import { AccessAttempts, StaffInvites } from "./Access";
 import { AuditLog, Broadcasts } from "./Broadcasts";
 import { Candidates, Trainees } from "./CandidatesAdmin";
 import { MyFinance, Payouts } from "./Finance";
@@ -144,6 +145,10 @@ function ScreenView({ me, screen }: { me: Me; screen: Screen }) {
           return <Broadcasts />;
         case "audit":
           return <AuditLog />;
+        case "staffInvites":
+          return <StaffInvites />;
+        case "accessLog":
+          return <AccessAttempts />;
         case "candidates":
           return <Candidates me={me} />;
         case "trainees":

@@ -1,3 +1,4 @@
+from app.models.access import AccessAttempt, AccessEvent, StaffInvite, StaffInviteClaim
 from app.models.audit import AuditEvent
 from app.models.base import Base
 from app.models.broadcasts import Broadcast, BroadcastRecipient, BroadcastReply
@@ -77,6 +78,10 @@ from app.models.users import (
 )
 
 __all__ = [
+    "AccessAttempt",
+    "AccessEvent",
+    "StaffInvite",
+    "StaffInviteClaim",
     "Broadcast",
     "BroadcastRecipient",
     "BroadcastReply",

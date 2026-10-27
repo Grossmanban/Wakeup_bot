@@ -226,6 +226,11 @@ async def save_form(session: AsyncSession, user: User, data: dict[str, Any]) -> 
         .with_for_update()
     )
     if c is None:
+        from app.services import entry
+
+        # Новая анкета — только по действительной реферальной ссылке (скрытый режим бота).
+        if not await entry.referral_allowed(session, user):
+            raise Forbidden("referral_required", "Анкета доступна только по приглашению")
         c = Candidate(
             user_id=user.id, referrer_id=user.referred_by_id, status=CandidateStatus.DRAFT
         )

@@ -37,6 +37,8 @@ class Perm(StrEnum):
     GROUPS_INVITE = "groups.invite"
     STATS_VIEW = "stats.view"
     EXPORT = "export"
+    STAFF_INVITES = "invites.staff"
+    ACCESS_LOG_VIEW = "access_log.view"
 
 
 PERM_TITLES: dict[Perm, str] = {
@@ -64,6 +66,8 @@ PERM_TITLES: dict[Perm, str] = {
     Perm.GROUPS_INVITE: "Приглашения в группы",
     Perm.STATS_VIEW: "Статистика",
     Perm.EXPORT: "Экспорт",
+    Perm.STAFF_INVITES: "Приглашение действующих сотрудников",
+    Perm.ACCESS_LOG_VIEW: "Журнал попыток доступа",
 }
 
 # Только владелец: роли, выдача разрешений, продуктовые доступы, продукты и ставки,

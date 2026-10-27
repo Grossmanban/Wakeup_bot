@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { api, formatMsk, Me } from "../api";
+import { api, formatMsk } from "../api";
 import { ErrorBox, Field, Loader, useAction, useLoad } from "../components/ui";
-import { Register } from "./Register";
 
 export interface CandidateData {
   id: number;
@@ -49,29 +48,12 @@ export const CANDIDATE_STATUS: Record<string, string> = {
   training: "Обучение",
 };
 
-/** Первый экран нового человека: анкета кандидата или регистрация сотрудника. */
-export function Welcome({ me, onDone }: { me: Me; onDone: () => void }) {
+/** Анкета кандидата: открывается только по действительной реферальной ссылке. */
+export function Welcome({ onDone }: { onDone: () => void }) {
   const v = useLoad(() => api.get<CandidateView>("/my/candidate"), []);
-  const [choice, setChoice] = useState<"candidate" | "employee" | null>(null);
-  if (me.user.role === "owner") return <Register me={me} onDone={onDone} />;
   if (v.loading && !v.data) return <Loader />;
   if (!v.data) return <ErrorBox error={v.error} onRetry={v.reload} />;
-  const mode = choice ?? (v.data.referred || v.data.candidate ? "candidate" : null);
-  if (mode === "employee") return <Register me={me} onDone={onDone} onCancel={() => setChoice(null)} />;
-  if (mode === "candidate") return <CandidateForm view={v.data} onSaved={v.setData} onSubmitted={onDone} />;
-  return (
-    <div>
-      <h1>Добро пожаловать</h1>
-      <button className="list-item" onClick={() => setChoice("candidate")}>
-        <b>Хочу работать</b>
-        <div className="muted small">Заполнить анкету кандидата</div>
-      </button>
-      <button className="list-item" onClick={() => setChoice("employee")}>
-        <b>Я уже работаю</b>
-        <div className="muted small">Регистрация сотрудника</div>
-      </button>
-    </div>
-  );
+  return <CandidateForm view={v.data} onSaved={v.setData} onSubmitted={onDone} />;
 }
 
 function CandidateForm({

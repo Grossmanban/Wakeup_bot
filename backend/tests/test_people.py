@@ -194,7 +194,7 @@ async def test_candidate_full_flow_with_referral_and_training(client, session):
     await _visitor(131, ref["code"])
     await _visitor(131, ref["code"])  # повторный переход того же человека не считается
     me = (await client.get("/api/me", headers=auth(131))).json()
-    assert me["screen"] == "register"
+    assert me["screen"] == "candidate_form"
 
     r = await client.put("/api/my/candidate", json={"first_name": "Ольга"}, headers=auth(131))
     assert r.json()["referred"] is True

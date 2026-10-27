@@ -21,8 +21,9 @@ async def test_owner_bootstrap(client):
 async def test_full_registration_flow(client, session):
     await owner_ready(client)
 
+    # Без приглашения — закрыто (скрытый режим); заявка ниже — как поданная до него.
     me = (await client.get("/api/me", headers=auth(10, username="petr"))).json()
-    assert me["screen"] == "register"
+    assert me["screen"] == "no_access"
     assert me["has_product_access"] is False
     assert me["product_access_message"].startswith("Вам пока не выданы доступы")
 
@@ -112,12 +113,13 @@ async def test_pending_application_can_be_corrected(client):
 
 
 async def test_invalid_names(client):
+    h = auth(OWNER_TG)
     r = await client.post(
-        "/api/registration", json={"first_name": "  ", "last_name": "Иванов"}, headers=auth(15)
+        "/api/registration", json={"first_name": "  ", "last_name": "Иванов"}, headers=h
     )
     assert r.status_code == 400
     r = await client.post(
-        "/api/registration", json={"first_name": "<b>", "last_name": "Иванов"}, headers=auth(15)
+        "/api/registration", json={"first_name": "<b>", "last_name": "Иванов"}, headers=h
     )
     assert r.status_code == 400
 

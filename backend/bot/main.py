@@ -1,5 +1,8 @@
 """Telegram-бот: /start, кнопка Mini App, учёт блокировки бота и отправка очереди.
 
+Скрытый режим: посторонним (без приглашения или реферальной ссылки) бот ничего не
+отвечает и не показывает кнопок, попытка пишется в журнал (app/services/entry.py).
+
 Запуск: python -m bot.main
 """
 
@@ -13,6 +16,7 @@ from aiogram.types import (
     ChatMemberUpdated,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    MenuButtonDefault,
     MenuButtonWebApp,
     Message,
     WebAppInfo,
@@ -25,25 +29,14 @@ from app.db import get_sessionmaker
 from app.models import AccountStatus, User
 from app.security.telegram_auth import TelegramUser
 from app.services import broadcasts as broadcasts_svc
-from app.services import candidates as candidates_svc
+from app.services import entry as entry_svc
 from app.services import groups as groups_svc
-from app.services import users as users_svc
 from app.telegram_api import get_gateway
 from app.timeutil import now_utc
 from bot.outbox_worker import run_forever
 
 log = logging.getLogger(__name__)
 router = Router()
-
-START_TEXT = {
-    AccountStatus.UNREGISTERED: (
-        "Здравствуйте! Откройте приложение, чтобы заполнить анкету кандидата или "
-        "зарегистрироваться как сотрудник."
-    ),
-    AccountStatus.PENDING: "Ваша заявка на рассмотрении. Мы сообщим о решении.",
-    AccountStatus.REJECTED: "Ваша заявка отклонена. Можно подать новую в приложении.",
-    AccountStatus.ACTIVE: "Откройте приложение, чтобы продолжить работу.",
-}
 
 
 def _app_keyboard() -> InlineKeyboardMarkup | None:
@@ -57,26 +50,27 @@ def _app_keyboard() -> InlineKeyboardMarkup | None:
     )
 
 
+def _tg(u) -> TelegramUser:
+    return TelegramUser(
+        id=u.id, first_name=u.first_name, last_name=u.last_name, username=u.username
+    )
+
+
 @router.message(CommandStart(), F.chat.type == "private")
 async def on_start(message: Message, command: CommandObject) -> None:
-    tg = message.from_user
-    assert tg is not None
+    assert message.from_user is not None
     async with get_sessionmaker()() as session:
-        user = await users_svc.upsert_from_telegram(
-            session,
-            TelegramUser(
-                id=tg.id, first_name=tg.first_name, last_name=tg.last_name, username=tg.username
-            ),
-            started_bot=True,
+        reply = await entry_svc.handle_start(session, _tg(message.from_user), command.args or "")
+    if reply is None:
+        return  # посторонний: никаких сообщений и кнопок
+    await message.answer(reply.text, reply_markup=_app_keyboard() if reply.show_app else None)
+    url = get_settings().miniapp_url
+    if reply.show_app and url and message.bot is not None:
+        # Кнопка меню — только в чате человека с доступом, а не у всех.
+        await message.bot.set_chat_menu_button(
+            chat_id=message.chat.id,
+            menu_button=MenuButtonWebApp(text="Приложение", web_app=WebAppInfo(url=url)),
         )
-        await session.commit()
-        payload = (command.args or "").strip()
-        if payload.startswith("ref_"):
-            await candidates_svc.record_visit(session, user, payload[4:])
-        status = user.status
-    text = users_svc.STATUS_MESSAGES.get(status) or START_TEXT[status]
-    blocked = status in users_svc.STATUS_MESSAGES
-    await message.answer(text, reply_markup=None if blocked else _app_keyboard())
 
 
 @router.my_chat_member(F.chat.type.in_({"group", "supergroup"}))
@@ -116,6 +110,10 @@ async def on_ack(query: CallbackQuery) -> None:
         await query.answer()
         return
     async with get_sessionmaker()() as session:
+        if not await entry_svc.note_interaction(
+            session, _tg(query.from_user), "callback", query.data
+        ):
+            return  # посторонний: без ответа
         user = await session.scalar(select(User).where(User.telegram_id == query.from_user.id))
         # Отключённый или заблокированный аккаунт не может выполнять рабочие действия (ТЗ 2.3).
         active = user is not None and user.status == AccountStatus.ACTIVE and user.app_access
@@ -138,6 +136,10 @@ async def on_reply(message: Message) -> None:
     elif message.voice:
         media_kind, file_id = "voice", message.voice.file_id
     async with get_sessionmaker()() as session:
+        if not await entry_svc.note_interaction(
+            session, _tg(message.from_user), "message", message.text or message.caption
+        ):
+            return
         user = await session.scalar(select(User).where(User.telegram_id == message.from_user.id))
         ok = (
             user is not None and user.status == AccountStatus.ACTIVE and user.app_access
@@ -171,6 +173,24 @@ async def on_my_chat_member(event: ChatMemberUpdated) -> None:
         await session.commit()
 
 
+@router.message(F.chat.type == "private")
+async def on_other_message(message: Message) -> None:
+    """Любое другое сообщение: посторонних записываем в журнал, ответа нет никому."""
+    if message.from_user is None:
+        return
+    async with get_sessionmaker()() as session:
+        await entry_svc.note_interaction(
+            session, _tg(message.from_user), "message", message.text or message.caption
+        )
+
+
+@router.callback_query()
+async def on_other_callback(query: CallbackQuery) -> None:
+    async with get_sessionmaker()() as session:
+        await entry_svc.note_interaction(session, _tg(query.from_user), "callback", query.data)
+    await query.answer()
+
+
 async def main() -> None:
     logging.basicConfig(level=logging.INFO)
     settings = get_settings()
@@ -178,12 +198,9 @@ async def main() -> None:
     dp = Dispatcher()
     dp.include_router(router)
 
-    if settings.miniapp_url:
-        await bot.set_chat_menu_button(
-            menu_button=MenuButtonWebApp(
-                text="Приложение", web_app=WebAppInfo(url=settings.miniapp_url)
-            )
-        )
+    # Общая кнопка меню видна всем, кто откроет бота, — убираем её. У людей с доступом
+    # кнопка ставится в их чате при /start.
+    await bot.set_chat_menu_button(menu_button=MenuButtonDefault())
 
     worker = asyncio.create_task(run_forever(get_sessionmaker(), get_gateway().send))
     scheduler = asyncio.create_task(run_jobs_forever())

@@ -9,6 +9,7 @@ from app.api.schemas import (
     RegistrationOut,
     UserOut,
 )
+from app.errors import Forbidden
 from app.models import (
     AccountStatus,
     CandidateStatus,
@@ -17,6 +18,7 @@ from app.models import (
     Role,
 )
 from app.services import candidates as candidates_svc
+from app.services import entry as entry_svc
 from app.services import products as products_svc
 from app.services import users as users_svc
 from app.services.access import load_actor
@@ -24,18 +26,30 @@ from app.services.access import load_actor
 router = APIRouter(tags=["me"])
 
 
-def _screen(user) -> tuple[str, str | None]:
+async def _screen(session, user) -> tuple[str, str | None]:
     if user.status in users_svc.STATUS_MESSAGES:
         return user.status.value, users_svc.STATUS_MESSAGES[user.status]
     if user.role == Role.OWNER and not user.first_name:
-        return "register", None
-    match user.status:
-        case AccountStatus.UNREGISTERED:
-            return "register", None
-        case AccountStatus.PENDING:
-            return "pending", "Заявка отправлена и ожидает рассмотрения"
-        case AccountStatus.REJECTED:
+        return "register", None  # владелец один раз указывает ФИО
+    if user.status in (AccountStatus.UNREGISTERED, AccountStatus.REJECTED):
+        # Без приглашения или реферальной ссылки регистрация закрыта (скрытый режим).
+        match await entry_svc.app_screen(session, user):
+            case "staff_register":
+                return "staff_register", None
+            case "candidate":
+                candidate = await candidates_svc.my_candidate(session, user)
+                if candidate is not None and candidate.status not in (
+                    CandidateStatus.DRAFT,
+                    CandidateStatus.REJECTED,
+                ):
+                    return "candidate", None
+                return "candidate_form", None
+        if user.status == AccountStatus.REJECTED:
             return "rejected", "Заявка отклонена"
+        await entry_svc.note_app_open(session, user)
+        return "no_access", "Доступ по приглашению"
+    if user.status == AccountStatus.PENDING:
+        return "pending", "Заявка отправлена и ожидает рассмотрения"
     if not user.app_access:
         return "no_app_access", users_svc.NO_APP_ACCESS_MESSAGE
     return "ready", None
@@ -55,15 +69,7 @@ async def me(session: SessionDep, user: CurrentUser):
         .order_by(NameChangeRequest.id.desc())
         .limit(1)
     )
-    screen, message = _screen(user)
-    candidate = await candidates_svc.my_candidate(session, user)
-    if (
-        screen == "register"
-        and candidate is not None
-        and candidate.status not in (CandidateStatus.DRAFT,)
-        and user.role != Role.OWNER
-    ):
-        screen, message = "candidate", None
+    screen, message = await _screen(session, user)
     actor = await load_actor(session, user)
     has_products = user.role == Role.OWNER or bool(
         await products_svc.user_product_ids(session, user.id)
@@ -84,8 +90,19 @@ async def me(session: SessionDep, user: CurrentUser):
 
 @router.post("/registration", response_model=RegistrationOut | None)
 async def register(body: RegistrationIn, session: SessionDep, user: CurrentUser):
+    """ФИО владельца при первом входе. Сотрудники регистрируются только по приглашению
+    (POST /staff-registration), кандидаты — через анкету по реферальной ссылке."""
+    if user.role != Role.OWNER:
+        raise Forbidden("invite_required", "Регистрация только по приглашению")
     req = await users_svc.submit_registration(session, user, body.first_name, body.last_name)
     return RegistrationOut.model_validate(req) if req else None
+
+
+@router.post("/staff-registration", response_model=UserOut)
+async def staff_registration(body: RegistrationIn, session: SessionDep, user: CurrentUser):
+    """Действующий сотрудник по приглашению: только фамилия и имя, сразу в работу."""
+    user = await entry_svc.register_staff(session, user, body.first_name, body.last_name)
+    return UserOut.model_validate(user)
 
 
 @router.post("/me/name-change", response_model=NameChangeOut | None)

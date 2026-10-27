@@ -2,7 +2,8 @@ import { api, ApiError, Me } from "./api";
 import { ErrorBox, Loader, useLoad } from "./components/ui";
 import { Home } from "./screens/Home";
 import { CandidateStatusScreen, Welcome } from "./screens/Candidate";
-import { StatusScreen } from "./screens/Status";
+import { NoAccess, StatusScreen } from "./screens/Status";
+import { Register, StaffRegister } from "./screens/Register";
 import { initData } from "./telegram";
 
 export function App() {
@@ -34,7 +35,13 @@ function Authed() {
 
   switch (me.screen) {
     case "register":
-      return <Welcome me={me} onDone={reload} />;
+      return <Register me={me} onDone={reload} />;
+    case "candidate_form":
+      return <Welcome onDone={reload} />;
+    case "staff_register":
+      return <StaffRegister me={me} onDone={reload} />;
+    case "no_access":
+      return <NoAccess />;
     case "candidate":
       return <CandidateStatusScreen onReload={reload} />;
     case "ready":

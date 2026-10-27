@@ -303,26 +303,22 @@ async def test_network_task_manager_cannot_touch_other_pools(client, session):
 
 async def test_start_training_closes_pending_registration(client, session):
     """«Начать обучение» закрывает открытую заявку: её отклонение не отключит стажёра."""
-    from tests.test_people import _fill
+    from tests.helpers import register
+    from tests.test_people import _fill, _visitor
 
     await owner_ready(client)
     h = auth(OWNER_TG)
+    code = (await client.get("/api/my/referral", headers=h)).json()["code"]
+    await _visitor(320, code)
     await _fill(client, 320)
     cid = (await client.post("/api/my/candidate/submit", headers=auth(320))).json()["candidate"][
         "id"
     ]
-    reg = await client.post(
-        "/api/registration",
-        json={"first_name": "Ольга", "last_name": "Заявкина"},
-        headers=auth(320),
-    )
+    reg = await register(client, 320, "Ольга", "Заявкина")
     await client.post(f"/api/candidates/{cid}/review/take", json={}, headers=h)
     await client.post(f"/api/candidates/{cid}/review/approve", json={}, headers=h)
     r = await client.post(f"/api/candidates/{cid}/start-training", headers=h)
     assert r.json()["status"] == "active", r.text
-    assert reg.status_code == 200, reg.text
-    r = await client.post(
-        f"/api/registrations/{reg.json()['id']}/reject", json={"reason": "x"}, headers=h
-    )
+    r = await client.post(f"/api/registrations/{reg['id']}/reject", json={"reason": "x"}, headers=h)
     assert r.status_code in (404, 409), r.text
     assert (await client.get("/api/me", headers=auth(320))).json()["screen"] == "ready"

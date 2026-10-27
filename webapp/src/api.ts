@@ -56,6 +56,9 @@ export interface NameChange {
 
 export type Screen =
   | "register"
+  | "candidate_form"
+  | "staff_register"
+  | "no_access"
   | "candidate"
   | "pending"
   | "rejected"

@@ -30,13 +30,33 @@ def auth(tg_id: int, **kw) -> dict[str, str]:
 
 
 async def register(client, tg_id: int, first: str = "Иван", last: str = "Иванов", **kw):
-    r = await client.post(
-        "/api/registration",
-        json={"first_name": first, "last_name": last},
-        headers=auth(tg_id, **kw),
-    )
-    assert r.status_code == 200, r.text
-    return r.json()
+    """Владелец указывает ФИО через API. Для остальных — заявка в ожидании на уровне сервиса,
+    как у людей, подавших её до скрытого режима: самостоятельная регистрация через API
+    закрыта (test_hidden_mode.py), новые сотрудники приходят по приглашению."""
+    if tg_id == OWNER_TG:
+        r = await client.post(
+            "/api/registration",
+            json={"first_name": first, "last_name": last},
+            headers=auth(tg_id, **kw),
+        )
+        assert r.status_code == 200, r.text
+        return r.json()
+    from app.db import get_sessionmaker
+    from app.security.telegram_auth import TelegramUser
+    from app.services import users as users_svc
+
+    async with get_sessionmaker()() as s:
+        user = await users_svc.upsert_from_telegram(
+            s, TelegramUser(tg_id, kw.get("first_name", "Тест"), None, kw.get("username"))
+        )
+        await s.commit()
+        req = await users_svc.submit_registration(s, user, first, last)
+        return {
+            "id": req.id,
+            "user_id": user.id,
+            "status": req.status.value,
+            "first_name": req.first_name,
+        }
 
 
 async def owner_ready(client):

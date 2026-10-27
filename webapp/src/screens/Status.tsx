@@ -1,24 +1,17 @@
-import { useState } from "react";
 import { formatMsk, Me } from "../api";
-import { Register } from "./Register";
+
+/** Нет приглашения: без подсказок, как попасть внутрь. */
+export function NoAccess() {
+  return (
+    <div className="center">
+      <h1>Доступ по приглашению</h1>
+    </div>
+  );
+}
 
 /** Экраны до допуска к работе: заявка на рассмотрении, отказ, отключение, блокировка. */
 export function StatusScreen({ me, onReload }: { me: Me; onReload: () => void }) {
-  const [editing, setEditing] = useState(false);
   const reg = me.registration;
-
-  if (editing) {
-    return (
-      <Register
-        me={me}
-        onDone={() => {
-          setEditing(false);
-          onReload();
-        }}
-        onCancel={() => setEditing(false)}
-      />
-    );
-  }
 
   if (me.screen === "pending" && reg) {
     return (
@@ -38,7 +31,6 @@ export function StatusScreen({ me, onReload }: { me: Me; onReload: () => void })
         </div>
         <p className="muted">Мы сообщим о решении в чате с ботом.</p>
         <div className="row">
-          <button onClick={() => setEditing(true)}>Исправить данные</button>
           <button onClick={onReload}>Обновить</button>
         </div>
       </div>
@@ -50,9 +42,6 @@ export function StatusScreen({ me, onReload }: { me: Me; onReload: () => void })
       <div>
         <h1>Заявка отклонена</h1>
         {reg?.reason && <div className="card">Причина: {reg.reason}</div>}
-        <button className="primary" onClick={() => setEditing(true)}>
-          Подать заявку снова
-        </button>
       </div>
     );
   }

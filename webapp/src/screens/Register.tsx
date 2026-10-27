@@ -2,27 +2,53 @@ import { useState } from "react";
 import { api, Me } from "../api";
 import { ErrorBox, Field, useAction } from "../components/ui";
 
-export function Register({ me, onDone, onCancel }: { me: Me; onDone: () => void; onCancel?: () => void }) {
-  const reg = me.registration?.status === "pending" ? me.registration : null;
-  const [last, setLast] = useState(reg?.last_name ?? me.user.last_name ?? me.user.tg_last_name ?? "");
-  const [first, setFirst] = useState(reg?.first_name ?? me.user.first_name ?? me.user.tg_first_name ?? "");
+/** ФИО владельца при первом входе. */
+export function Register({ me, onDone }: { me: Me; onDone: () => void }) {
+  return <NameForm me={me} onDone={onDone} endpoint="/registration" title="Ваше имя" submit="Сохранить" />;
+}
+
+/** Действующий сотрудник по приглашению: только фамилия и имя, затем сразу рабочий интерфейс. */
+export function StaffRegister({ me, onDone }: { me: Me; onDone: () => void }) {
+  return (
+    <NameForm
+      me={me}
+      onDone={onDone}
+      endpoint="/staff-registration"
+      title="Регистрация сотрудника"
+      hint="Вы приглашены как действующий сотрудник. Укажите настоящие фамилию и имя — после этого откроется рабочий интерфейс."
+      submit="Зарегистрироваться"
+    />
+  );
+}
+
+function NameForm({
+  me,
+  onDone,
+  endpoint,
+  title,
+  hint,
+  submit,
+}: {
+  me: Me;
+  onDone: () => void;
+  endpoint: string;
+  title: string;
+  hint?: string;
+  submit: string;
+}) {
+  const [last, setLast] = useState(me.user.last_name ?? me.user.tg_last_name ?? "");
+  const [first, setFirst] = useState(me.user.first_name ?? me.user.tg_first_name ?? "");
   const { busy, error, run } = useAction();
-  const isOwner = me.user.role === "owner";
 
   return (
     <div>
-      <h1>{isOwner ? "Ваше имя" : reg ? "Изменить заявку" : "Регистрация"}</h1>
-      {!isOwner && (
-        <p className="muted">
-          Укажите настоящие фамилию и имя. Заявку рассмотрит администрация, после одобрения откроется
-          доступ к приложению.
-        </p>
-      )}
+      <h1>{title}</h1>
+      {hint && <p className="muted">{hint}</p>}
       <ErrorBox error={error} />
       <form
         onSubmit={async (e) => {
           e.preventDefault();
-          const r = await run(() => api.post("/registration", { first_name: first, last_name: last }));
+          const r = await run(() => api.post(endpoint, { first_name: first, last_name: last }));
           if (r.ok) onDone();
         }}
       >
@@ -34,13 +60,8 @@ export function Register({ me, onDone, onCancel }: { me: Me; onDone: () => void;
         </Field>
         <div className="row">
           <button className="primary" type="submit" disabled={busy || !first.trim() || !last.trim()}>
-            {busy ? "Отправка…" : isOwner ? "Сохранить" : reg ? "Сохранить изменения" : "Отправить заявку"}
+            {busy ? "Отправка…" : submit}
           </button>
-          {onCancel && (
-            <button type="button" onClick={onCancel} disabled={busy}>
-              Отмена
-            </button>
-          )}
         </div>
       </form>
     </div>
