@@ -31,9 +31,9 @@ class Settings(BaseSettings):
     # Каталог для фотографий на диске.
     media_dir: str = "./media"
 
-    # Движок OCR: paddle — PaddleOCR; none — автоматическая проверка отключена,
-    # все фото с OCR уходят на ручную проверку.
-    ocr_engine: str = "paddle"
+    # Движок OCR: onnx — модели PP-OCRv5 через ONNX Runtime (app/ocr.py); none —
+    # автоматическая проверка отключена, все фото с OCR уходят на ручную проверку.
+    ocr_engine: str = "onnx"
 
     @field_validator("owner_telegram_ids", "cors_origins", mode="before")
     @classmethod

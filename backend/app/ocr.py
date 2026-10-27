@@ -1,11 +1,13 @@
 """Распознавание текста на фото (ТЗ 7.1).
 
-Движок по умолчанию — PaddleOCR (PP-OCRv5: мобильная детекция + славянская модель
-распознавания). Проверено на кириллице: ~1 с на фото на CPU. Движок подключается через
-интерфейс, его можно заменить, не трогая остальной код.
+Модели PP-OCRv5 (мобильная детекция + славянская модель распознавания), запускаются через
+ONNX Runtime (RapidOCR) без фреймворка PaddlePaddle: ~0,4 ГБ памяти в пике и ~1 с на фото
+на CPU против ~1,1 ГБ и 5–20 с у PaddleOCR при той же точности на кириллице. Движок
+подключается через интерфейс, его можно заменить, не трогая остальной код.
 """
 
 import asyncio
+import os
 import re
 import threading
 import unicodedata
@@ -14,6 +16,15 @@ from pathlib import Path
 from typing import Protocol
 
 from app.config import get_settings
+
+# Каталог с моделями, скачанными при сборке образа (scripts/fetch_ocr_models.py).
+# Если файлов нет (разработка), RapidOCR скачает модели сам при первом распознавании.
+MODELS_DIR = Path(os.environ.get("OCR_MODELS_DIR", "/opt/ocr-models"))
+DET_MODEL = "ch_PP-OCRv5_det_mobile.onnx"
+REC_MODEL = "eslav_PP-OCRv5_rec_mobile.onnx"
+# Длинная сторона фото для поиска текста. 1280 — запас для мелкого текста (проверено на
+# шрифте 20 px на фото 1200×1600) при пике памяти ~0,4 ГБ; 960 — ~0,3 ГБ.
+DET_LIMIT_SIDE = 1280
 
 
 class OcrUnavailable(Exception):
@@ -24,7 +35,7 @@ class OcrEngine(Protocol):
     async def recognize(self, path: Path) -> str: ...
 
 
-class PaddleEngine:
+class OnnxEngine:
     def __init__(self) -> None:
         self._ocr = None
         self._lock = threading.Lock()
@@ -32,27 +43,32 @@ class PaddleEngine:
     def _load(self):
         if self._ocr is None:
             try:
-                from paddleocr import PaddleOCR
+                from rapidocr import RapidOCR
+                from rapidocr.utils.typings import LangDet, LangRec, ModelType, OCRVersion
             except ImportError as e:
-                raise OcrUnavailable("PaddleOCR не установлен") from e
-            self._ocr = PaddleOCR(
-                text_detection_model_name="PP-OCRv5_mobile_det",
-                text_recognition_model_name="eslav_PP-OCRv5_mobile_rec",
-                use_doc_orientation_classify=False,
-                use_doc_unwarping=False,
-                use_textline_orientation=False,
-                # oneDNN в Paddle 3.x падает на этих моделях.
-                enable_mkldnn=False,
-            )
+                raise OcrUnavailable("Модуль OCR не установлен") from e
+            params = {
+                "Global.use_cls": False,
+                "Global.log_level": "warning",
+                "Det.ocr_version": OCRVersion.PPOCRV5,
+                "Det.model_type": ModelType.MOBILE,
+                "Det.lang_type": LangDet.CH,
+                "Det.limit_type": "max",
+                "Det.limit_side_len": DET_LIMIT_SIDE,
+                "Rec.ocr_version": OCRVersion.PPOCRV5,
+                "Rec.model_type": ModelType.MOBILE,
+                "Rec.lang_type": LangRec.ESLAV,
+            }
+            if (MODELS_DIR / DET_MODEL).exists() and (MODELS_DIR / REC_MODEL).exists():
+                params["Det.model_path"] = str(MODELS_DIR / DET_MODEL)
+                params["Rec.model_path"] = str(MODELS_DIR / REC_MODEL)
+            self._ocr = RapidOCR(params=params)
         return self._ocr
 
     def _run(self, path: Path) -> str:
-        with self._lock:  # модель не потокобезопасна
-            ocr = self._load()
-            lines: list[str] = []
-            for res in ocr.predict(str(path)):
-                lines.extend(res["rec_texts"])
-            return "\n".join(lines)
+        with self._lock:  # один распознаватель на процесс: память не растёт с нагрузкой
+            result = self._load()(str(path))
+            return "\n".join(result.txts or [])
 
     async def recognize(self, path: Path) -> str:
         return await asyncio.wait_for(asyncio.to_thread(self._run, path), timeout=120)
@@ -69,7 +85,9 @@ _engine: OcrEngine | None = None
 def get_engine() -> OcrEngine:
     global _engine
     if _engine is None:
-        _engine = PaddleEngine() if get_settings().ocr_engine == "paddle" else DisabledEngine()
+        # «paddle» — прежнее название движка в .env, работает так же.
+        enabled = get_settings().ocr_engine in ("onnx", "paddle")
+        _engine = OnnxEngine() if enabled else DisabledEngine()
     return _engine
 
 

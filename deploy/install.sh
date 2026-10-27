@@ -223,16 +223,17 @@ fi
 
 bold "5/7 Распознавание текста на фото (OCR)"
 DEFAULT_OCR="$(current OCR_ENGINE)"
+[ "$DEFAULT_OCR" = paddle ] && DEFAULT_OCR=onnx  # прежнее название
 if [ -z "$DEFAULT_OCR" ]; then
-  if [ "$AVAIL_MB" -ge 2500 ]; then DEFAULT_OCR=paddle; else DEFAULT_OCR=none; fi
+  if [ "$AVAIL_MB" -ge 700 ]; then DEFAULT_OCR=onnx; else DEFAULT_OCR=none; fi
 fi
-echo "  Свободно памяти: ${AVAIL_MB} МБ (с учётом уже работающих программ). PaddleOCR нужно ~1,5 ГБ."
-echo "  paddle — проверка текста автоматически; none — такие фото уходят на ручную проверку."
+echo "  Свободно памяти: ${AVAIL_MB} МБ (с учётом уже работающих программ). OCR нужно ~0,5 ГБ."
+echo "  onnx — проверка текста автоматически; none — такие фото уходят на ручную проверку."
 while :; do
-  ask OCR_ENGINE "paddle или none" "$DEFAULT_OCR"
-  [[ "$OCR_ENGINE" =~ ^(paddle|none)$ ]] && break
+  ask OCR_ENGINE "onnx или none" "$DEFAULT_OCR"
+  [[ "$OCR_ENGINE" =~ ^(onnx|none)$ ]] && break
 done
-if [ "$OCR_ENGINE" = paddle ]; then WITH_OCR=1; else WITH_OCR=0; fi
+if [ "$OCR_ENGINE" = onnx ]; then WITH_OCR=1; else WITH_OCR=0; fi
 
 POSTGRES_PASSWORD="$(current POSTGRES_PASSWORD)"
 # Пароль БД задаётся один раз: смена пароля в .env не меняет его в уже созданной базе.
