@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app import timeutil
 from app.models import JobRun
-from app.services import finance, groups, photoreports
+from app.services import audit_archive, finance, groups, photoreports
 from app.services import settings as settings_svc
 
 log = logging.getLogger(__name__)
@@ -95,6 +95,15 @@ async def run_due(
             now.strftime("%Y-%m-%dT%H"),
             lambda s: photoreports.post_corrections(s, today),
         )
+
+    # Архив аудита в Telegram — каждую минуту, порциями.
+    try:
+        async with sessionmaker() as session:
+            n = await audit_archive.export_batch(session)
+        if n:
+            ran.append(f"audit_archive:{n}")
+    except Exception:
+        log.exception("audit archive export failed")
 
     for hook in EXTRA_JOBS:
         await hook(sessionmaker, now, run)

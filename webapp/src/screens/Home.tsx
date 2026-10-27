@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Me } from "../api";
 import { FallbackBack, NavProvider, Screen, useNav } from "../nav";
 import { load, save } from "../storage";
+import { AuditLog, Broadcasts } from "./Broadcasts";
 import { Candidates, Trainees } from "./CandidatesAdmin";
 import { MyFinance, Payouts } from "./Finance";
 import { BonusRules, LazyRules } from "./FinanceRules";
@@ -139,6 +140,10 @@ function ScreenView({ me, screen }: { me: Me; screen: Screen }) {
           return <GroupsSettings />;
         case "photoreports":
           return <PhotoReports />;
+        case "broadcasts":
+          return <Broadcasts />;
+        case "audit":
+          return <AuditLog />;
         case "candidates":
           return <Candidates me={me} />;
         case "trainees":

@@ -57,6 +57,11 @@ async def _process_one(session: AsyncSession, send: Sender) -> bool:
         msg.last_error = str(e)[:1000]
         if e.permanent or msg.attempts > len(BACKOFF_SECONDS):
             msg.status = OutboxStatus.FAILED
+            # Ошибки самого архива аудита не пишутся в аудит — иначе получится бесконечный цикл.
+            if msg.dedup_key.startswith("audit_archive:"):
+                log.error("audit archive message %s failed: %s", msg.id, msg.last_error)
+                await session.commit()
+                return True
             audit.record(
                 session,
                 category=Category.SYSTEM,
@@ -117,11 +122,12 @@ async def run_forever(
 
 
 def _register_hooks() -> None:
-    from app.services import groups, photoreports
+    from app.services import broadcasts, groups, photoreports
 
     RESULT_HOOKS["invite"] = groups.on_invite_result
     RESULT_HOOKS["photo_delivery"] = photoreports.on_delivery_result
     RESULT_HOOKS["day_post"] = photoreports.on_post_result
+    RESULT_HOOKS["broadcast_recipient"] = broadcasts.on_recipient_result
 
 
 _register_hooks()

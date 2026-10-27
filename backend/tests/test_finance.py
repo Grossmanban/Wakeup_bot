@@ -348,7 +348,9 @@ async def test_scheduled_lazy_close_runs_once(client):
     assert second == []
     # До 00:10 закрытие дня не запускается.
     early = timeutil.msk_at(TODAY + timedelta(days=1), datetime.min.time().replace(minute=9))
-    assert not [r for r in await jobs.run_due(get_sessionmaker(), early) if r.startswith("lazy_close")]
+    assert not [
+        r for r in await jobs.run_due(get_sessionmaker(), early) if r.startswith("lazy_close")
+    ]
 
 
 async def test_unpaid_list(client):

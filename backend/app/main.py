@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.routes import (
+    broadcasts,
     execution,
     finance,
     groups,
@@ -59,6 +60,7 @@ def create_app() -> FastAPI:
         stats.router,
         groups.router,
         photoreports.router,
+        broadcasts.router,
     ):
         app.include_router(r, prefix="/api")
     return app

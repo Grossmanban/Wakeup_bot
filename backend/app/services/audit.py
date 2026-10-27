@@ -18,6 +18,7 @@ class Category(StrEnum):
     FINANCE = "finance"
     SETTINGS = "settings"
     GROUPS = "groups"
+    BROADCASTS = "broadcasts"
     SYSTEM = "system"  # ошибки доставки и системные события
 
 

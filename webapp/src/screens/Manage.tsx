@@ -41,6 +41,8 @@ export function manageSections(me: Me): Section[] {
   if (me.is_owner) s.push({ id: "groups", title: "Telegram-группы", hint: "Подключение и назначение" });
   if (me.is_owner) s.push({ id: "photoreports", title: "Telegram-фотоотчёты", hint: "Маршруты, отправки, сводки" });
   if (me.is_owner) s.push({ id: "points", title: "Рабочие точки", hint: "Адреса и вместимость" });
+  if (can("broadcasts.send")) s.push({ id: "broadcasts", title: "Рассылки", hint: "Сообщения сотрудникам" });
+  if (can("audit.view")) s.push({ id: "audit", title: "Журнал аудита", hint: "Все изменения в системе" });
   if (can("org.manage")) s.push({ id: "networks", title: "Сети", hint: "Оргструктура" });
   if (me.is_owner) s.push({ id: "settings", title: "Настройки", hint: "Параметры системы" });
   return s;

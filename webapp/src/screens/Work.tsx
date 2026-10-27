@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api, Me, MyProduct, newIdempotencyKey, rub, TASK_STATUS_TITLES, TaskListItem } from "../api";
 import { Empty, ErrorBox, Loader, useAction, useLoad } from "../components/ui";
 import { useNav } from "../nav";
+import { MyMessages } from "./Broadcasts";
 import { TrainingProgress } from "./CandidatesAdmin";
 import { GoalsList } from "./Goals";
 
@@ -23,6 +24,7 @@ export function Work({ me }: { me: Me }) {
         <div className="notice">{me.product_access_message}</div>
       )}
 
+      <MyMessages />
       {me.training_status !== "none" && <MyTraining />}
       <h1>Мои задания</h1>
       <ErrorBox error={tasks.error} onRetry={tasks.reload} />

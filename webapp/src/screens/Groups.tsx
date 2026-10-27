@@ -121,6 +121,21 @@ export function GroupsSettings() {
             >
               Проверить права
             </button>
+            {g.purpose === "audit" && (
+              <button
+                disabled={action.busy}
+                onClick={async () => {
+                  const r = await action.run(() => api.post<{ topics: Record<string, number>; error: string | null }>(`/groups/${g.id}/audit-topics`));
+                  if (r.ok)
+                    setTest({
+                      ...test,
+                      [g.id]: r.value.error ? `Темы созданы частично: ${r.value.error}` : `Темы архива готовы: ${Object.keys(r.value.topics).length}`,
+                    });
+                }}
+              >
+                Создать темы архива
+              </button>
+            )}
             <button
               disabled={action.busy}
               onClick={async () => {

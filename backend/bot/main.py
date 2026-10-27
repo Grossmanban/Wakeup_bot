@@ -9,6 +9,7 @@ import logging
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.filters import CommandObject, CommandStart
 from aiogram.types import (
+    CallbackQuery,
     ChatMemberUpdated,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -23,6 +24,7 @@ from app.config import get_settings
 from app.db import get_sessionmaker
 from app.models import AccountStatus, User
 from app.security.telegram_auth import TelegramUser
+from app.services import broadcasts as broadcasts_svc
 from app.services import candidates as candidates_svc
 from app.services import groups as groups_svc
 from app.services import users as users_svc
@@ -105,6 +107,48 @@ async def on_member_change(event: ChatMemberUpdated) -> None:
         )
 
 
+@router.callback_query(F.data.startswith("ack:"))
+async def on_ack(query: CallbackQuery) -> None:
+    """Кнопка «Я ознакомился» под рассылкой."""
+    try:
+        bid = int(query.data.split(":", 1)[1])
+    except ValueError:
+        await query.answer()
+        return
+    async with get_sessionmaker()() as session:
+        user = await session.scalar(select(User).where(User.telegram_id == query.from_user.id))
+        ok = user is not None and await broadcasts_svc.acknowledge(session, user, bid)
+    await query.answer(
+        "Отмечено: вы ознакомились" if ok else "Не удалось отметить", show_alert=not ok
+    )
+
+
+@router.message(F.chat.type == "private", F.reply_to_message)
+async def on_reply(message: Message) -> None:
+    """Ответ сотрудника на рассылку («Ответить» на её сообщение)."""
+    media_kind = file_id = None
+    if message.photo:
+        media_kind, file_id = "photo", message.photo[-1].file_id
+    elif message.document:
+        media_kind, file_id = "document", message.document.file_id
+    elif message.video:
+        media_kind, file_id = "video", message.video.file_id
+    elif message.voice:
+        media_kind, file_id = "voice", message.voice.file_id
+    async with get_sessionmaker()() as session:
+        user = await session.scalar(select(User).where(User.telegram_id == message.from_user.id))
+        ok = user is not None and await broadcasts_svc.save_reply(
+            session,
+            user,
+            message.reply_to_message.message_id,
+            message.text or message.caption,
+            media_kind,
+            file_id,
+        )
+    if ok:
+        await message.answer("Ответ передан")
+
+
 @router.my_chat_member(F.chat.type == "private")
 async def on_my_chat_member(event: ChatMemberUpdated) -> None:
     """Пользователь заблокировал или разблокировал бота."""
@@ -140,7 +184,9 @@ async def main() -> None:
     worker = asyncio.create_task(run_forever(get_sessionmaker(), get_gateway().send))
     scheduler = asyncio.create_task(run_jobs_forever())
     try:
-        await dp.start_polling(bot, allowed_updates=["message", "my_chat_member", "chat_member"])
+        await dp.start_polling(
+            bot, allowed_updates=["message", "callback_query", "my_chat_member", "chat_member"]
+        )
     finally:
         worker.cancel()
         scheduler.cancel()

@@ -1,5 +1,6 @@
 from app.models.audit import AuditEvent
 from app.models.base import Base
+from app.models.broadcasts import Broadcast, BroadcastRecipient, BroadcastReply
 from app.models.finance import (
     BonusRule,
     DownloadToken,
@@ -76,6 +77,9 @@ from app.models.users import (
 )
 
 __all__ = [
+    "Broadcast",
+    "BroadcastRecipient",
+    "BroadcastReply",
     "PURPOSES",
     "DayPost",
     "GroupInvite",
