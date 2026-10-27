@@ -67,8 +67,9 @@ sudo bash /opt/wakeup/deploy/install.sh
 | Диск под систему и образы | 10 ГБ | 15 ГБ |
 
 Фото — около 0,5 МБ каждое и хранятся бессрочно: 100 фото в день ≈ 1,5 ГБ в месяц,
-1000 фото в день ≈ 15 ГБ в месяц. Резервные копии за 14 дней занимают ещё примерно столько же,
-сколько все фото.
+1000 фото в день ≈ 15 ГБ в месяц. Резервная копия фото — зеркало (ещё столько же места), плюс
+дампы БД за 14 дней. Копии на том же диске не спасут от поломки сервера — периодически
+скачивайте папку `backups` к себе или на другой сервер.
 
 ### Вручную
 
@@ -115,16 +116,16 @@ sudo bash /opt/wakeup/deploy/install.sh
 
 ### Резервные копии
 
-`deploy/backup.sh` сохраняет дамп БД и архив фотографий в `./backups` и удаляет копии старше
-14 дней. Пример строки для cron — в начале скрипта.
+`deploy/backup.sh` каждый день (cron ставит `install.sh`) сохраняет дамп БД в `./backups`
+(хранятся 14 дней) и докопирует новые фото в `./backups/media`.
 
 Восстановление:
 
 ```sh
 docker compose up -d db
 docker compose exec -T db pg_restore -U wakeup -d wakeup --clean --if-exists < backups/db-<дата>.dump
-docker compose run --rm --no-deps -v "$PWD/backups":/backup --entrypoint sh api \
-  -c "tar -xzf /backup/media-<дата>.tar.gz -C /media"
+docker compose run --rm --no-deps -v "$PWD/backups/media":/backup-media --entrypoint sh api \
+  -c "cp -an /backup-media/. /media/"
 docker compose up -d
 ```
 
