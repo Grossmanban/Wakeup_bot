@@ -70,6 +70,8 @@ h2 {
   border-radius: 12px;
   padding: 12px 14px;
   margin-bottom: 10px;
+  /* Длинные ID и ссылки без пробелов переносятся, а не растягивают экран вбок. */
+  overflow-wrap: anywhere;
 }
 
 .row {
@@ -220,6 +222,7 @@ label.check input {
 .list-item {
   display: block;
   width: 100%;
+  overflow-wrap: anywhere;
   text-align: left;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -259,5 +262,10 @@ label.check input {
 
 .kv > * {
   overflow-wrap: break-word;
+  min-width: 0;
+}
+
+/* Текст внутри строки с кнопками и метками может сжиматься и переноситься. */
+.row > span {
   min-width: 0;
 }

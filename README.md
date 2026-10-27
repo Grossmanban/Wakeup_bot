@@ -12,6 +12,9 @@ Telegram-бот и Mini App для управления сотрудниками
 - Безопасность: [docs/security.md](docs/security.md)
 - Приёмочные тесты: [docs/acceptance.md](docs/acceptance.md)
 - Скрытый режим и приглашения: [docs/hidden-mode.md](docs/hidden-mode.md)
+- Тестовые таблицы импорта заданий: [docs/samples/](docs/samples/) — на листе «Настройка
+  продуктов» описано, какие продукты создать, на листе «Что проверяем» — ожидаемый результат
+  каждой строки (генератор: `backend/scripts/make_import_sample.py`)
 
 ## Возможности
 
