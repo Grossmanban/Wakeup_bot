@@ -26,6 +26,11 @@ export function manageSections(me: Me): Section[] {
     s.push({ id: "daySummary", title: "Сводка по дням", hint: "Кто работает, план и факт" });
     s.push({ id: "distribution", title: "Распред", hint: "Расстановка по точкам" });
   }
+  if (can("payouts.manage")) s.push({ id: "payouts", title: "Выплаты", hint: "Расчёт и подтверждение" });
+  if (can("finance.manage")) {
+    s.push({ id: "bonusRules", title: "Автоматические бонусы", hint: "Правила начисления" });
+    s.push({ id: "lazyRules", title: "Налог на лень", hint: "Минимумы и сниженные ставки" });
+  }
   if (me.is_owner) s.push({ id: "points", title: "Рабочие точки", hint: "Адреса и вместимость" });
   if (can("org.manage")) s.push({ id: "networks", title: "Сети", hint: "Оргструктура" });
   if (me.is_owner) s.push({ id: "settings", title: "Настройки", hint: "Параметры системы" });

@@ -26,6 +26,7 @@ from aiogram.types import (
 )
 from sqlalchemy import select
 
+from app import jobs
 from app.config import get_settings
 from app.db import get_sessionmaker
 from app.models import AccountStatus, User
@@ -136,10 +137,21 @@ async def main() -> None:
         )
 
     worker = asyncio.create_task(run_forever(get_sessionmaker(), make_sender(bot)))
+    scheduler = asyncio.create_task(run_jobs_forever())
     try:
         await dp.start_polling(bot, allowed_updates=["message", "my_chat_member", "chat_member"])
     finally:
         worker.cancel()
+        scheduler.cancel()
+
+
+async def run_jobs_forever() -> None:
+    while True:
+        try:
+            await jobs.run_due(get_sessionmaker())
+        except Exception:
+            log.exception("scheduled jobs iteration failed")
+        await asyncio.sleep(60)
 
 
 if __name__ == "__main__":

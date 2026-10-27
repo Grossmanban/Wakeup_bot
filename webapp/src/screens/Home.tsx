@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Me } from "../api";
 import { FallbackBack, NavProvider, Screen, useNav } from "../nav";
 import { load, save } from "../storage";
+import { MyFinance, Payouts } from "./Finance";
+import { BonusRules, LazyRules } from "./FinanceRules";
 import { Import } from "./Import";
 import { Manage, manageSections } from "./Manage";
 import { MyTask } from "./MyTask";
@@ -18,7 +20,7 @@ import { UserCard } from "./UserCard";
 import { Users } from "./Users";
 import { Work } from "./Work";
 
-type Tab = "work" | "schedule" | "profile" | "manage";
+type Tab = "work" | "schedule" | "money" | "profile" | "manage";
 
 export function Home(props: { me: Me; onReload: () => void }) {
   return (
@@ -34,6 +36,7 @@ function HomeInner({ me, onReload }: { me: Me; onReload: () => void }) {
   const tabs: { id: Tab; title: string }[] = [];
   tabs.push({ id: "work", title: "Работа" });
   tabs.push({ id: "schedule", title: "График" });
+  tabs.push({ id: "money", title: "Финансы" });
   tabs.push({ id: "profile", title: "Профиль" });
   if (sections.length) tabs.push({ id: "manage", title: "Управление" });
 
@@ -64,6 +67,7 @@ function HomeInner({ me, onReload }: { me: Me; onReload: () => void }) {
         <>
           {tab === "work" && <Work me={me} />}
           {tab === "schedule" && <Schedule me={me} />}
+          {tab === "money" && <MyFinance />}
           {tab === "profile" && <Profile me={me} onReload={onReload} />}
           {tab === "manage" && <Manage me={me} />}
         </>
@@ -114,6 +118,12 @@ function ScreenView({ me, screen }: { me: Me; screen: Screen }) {
           return <Points />;
         case "settings":
           return <SettingsScreen />;
+        case "payouts":
+          return <Payouts />;
+        case "bonusRules":
+          return <BonusRules />;
+        case "lazyRules":
+          return <LazyRules />;
       }
   }
   return null;

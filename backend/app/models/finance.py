@@ -184,3 +184,16 @@ class LazyConsumption(IdMixin, Base):
     units: Mapped[int] = mapped_column(Integer, nullable=False)
     normal_rate_kop: Mapped[int] = mapped_column(BigInteger, nullable=False)
     reduced_rate_kop: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+
+class JobRun(Base):
+    """Отметка о выполненной фоновой задаче: повторный запуск с тем же ключом пропускается."""
+
+    __tablename__ = "job_runs"
+
+    name: Mapped[str] = mapped_column(String(64), primary_key=True)
+    run_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    result: Mapped[dict[str, Any] | None] = mapped_column(JSONB)

@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.routes import (
     execution,
+    finance,
     me,
     org,
     products,
@@ -49,6 +50,7 @@ def create_app() -> FastAPI:
         execution.router,
         schedule.router,
         settings.router,
+        finance.router,
     ):
         app.include_router(r, prefix="/api")
     return app

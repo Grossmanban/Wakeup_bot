@@ -3,6 +3,7 @@ from app.models.base import Base
 from app.models.finance import (
     BonusRule,
     EntryKind,
+    JobRun,
     LazyConsumption,
     LazyExemption,
     LazyRule,
@@ -62,6 +63,7 @@ __all__ = [
     "WorkPoint",
     "BonusRule",
     "EntryKind",
+    "JobRun",
     "LazyConsumption",
     "LazyExemption",
     "LazyRule",

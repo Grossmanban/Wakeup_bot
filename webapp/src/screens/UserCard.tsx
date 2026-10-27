@@ -18,6 +18,7 @@ import {
 } from "../api";
 import { Empty, ErrorBox, Loader, ReasonDialog, StatusChip, useAction, useLoad } from "../components/ui";
 import { confirmAction } from "../telegram";
+import { UserFinance } from "./Finance";
 
 export function UserCard({ me, userId, onOpen }: { me: Me; userId: number; onOpen: (id: number) => void }) {
   const { data, error, loading, reload } = useLoad(() => api.get<UserProfile>(`/users/${userId}`), [userId]);
@@ -80,6 +81,9 @@ export function UserCard({ me, userId, onOpen }: { me: Me; userId: number; onOpe
       )}
       {me.is_owner && u.role !== "owner" && u.status === "active" && data.grants && (
         <PermissionsEditor userId={u.id} grants={data.grants} onChanged={reload} />
+      )}
+      {(can("finance.view") || can("finance.manage") || can("payouts.manage")) && registered && (
+        <UserFinance me={me} userId={u.id} />
       )}
       {can("audit.view") && <History userId={u.id} />}
     </div>
