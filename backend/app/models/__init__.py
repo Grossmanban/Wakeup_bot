@@ -15,6 +15,17 @@ from app.models.finance import (
 )
 from app.models.org import Network, Supervision, UserNetwork
 from app.models.outbox import OutboxStatus, TelegramOutbox
+from app.models.people import (
+    Candidate,
+    CandidateEvent,
+    CandidateStatus,
+    Goal,
+    GoalParticipant,
+    GoalStatus,
+    ReferralEvent,
+    TrainingConfirmation,
+    TrainingSession,
+)
 from app.models.products import (
     IdempotencyKey,
     OcrRule,
@@ -55,6 +66,15 @@ from app.models.users import (
 )
 
 __all__ = [
+    "Candidate",
+    "CandidateEvent",
+    "CandidateStatus",
+    "Goal",
+    "GoalParticipant",
+    "GoalStatus",
+    "ReferralEvent",
+    "TrainingConfirmation",
+    "TrainingSession",
     "ACTIVE_SHIFT",
     "DayOff",
     "Shift",

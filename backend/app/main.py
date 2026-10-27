@@ -7,6 +7,7 @@ from app.api.routes import (
     finance,
     me,
     org,
+    people,
     products,
     requests,
     schedule,
@@ -51,6 +52,7 @@ def create_app() -> FastAPI:
         schedule.router,
         settings.router,
         finance.router,
+        people.router,
     ):
         app.include_router(r, prefix="/api")
     return app

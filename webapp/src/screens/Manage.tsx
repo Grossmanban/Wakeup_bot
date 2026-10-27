@@ -31,6 +31,10 @@ export function manageSections(me: Me): Section[] {
     s.push({ id: "bonusRules", title: "Автоматические бонусы", hint: "Правила начисления" });
     s.push({ id: "lazyRules", title: "Налог на лень", hint: "Минимумы и сниженные ставки" });
   }
+  if (can("goals.manage")) s.push({ id: "goals", title: "Цели и соревнования", hint: "Создание и результаты" });
+  if (can("candidates.review") || can("training.manage"))
+    s.push({ id: "candidates", title: "Кандидаты", hint: "Анкеты, контакт, обучение" });
+  if (can("training.manage")) s.push({ id: "trainees", title: "Стажёры", hint: "Подтверждение учебных единиц" });
   if (me.is_owner) s.push({ id: "points", title: "Рабочие точки", hint: "Адреса и вместимость" });
   if (can("org.manage")) s.push({ id: "networks", title: "Сети", hint: "Оргструктура" });
   if (me.is_owner) s.push({ id: "settings", title: "Настройки", hint: "Параметры системы" });

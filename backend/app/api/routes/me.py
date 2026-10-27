@@ -9,7 +9,14 @@ from app.api.schemas import (
     RegistrationOut,
     UserOut,
 )
-from app.models import AccountStatus, NameChangeRequest, RegistrationRequest, Role
+from app.models import (
+    AccountStatus,
+    CandidateStatus,
+    NameChangeRequest,
+    RegistrationRequest,
+    Role,
+)
+from app.services import candidates as candidates_svc
 from app.services import products as products_svc
 from app.services import users as users_svc
 from app.services.access import load_actor
@@ -49,6 +56,14 @@ async def me(session: SessionDep, user: CurrentUser):
         .limit(1)
     )
     screen, message = _screen(user)
+    candidate = await candidates_svc.my_candidate(session, user)
+    if (
+        screen == "register"
+        and candidate is not None
+        and candidate.status not in (CandidateStatus.DRAFT,)
+        and user.role != Role.OWNER
+    ):
+        screen, message = "candidate", None
     actor = await load_actor(session, user)
     has_products = user.role == Role.OWNER or bool(
         await products_svc.user_product_ids(session, user.id)
@@ -63,6 +78,7 @@ async def me(session: SessionDep, user: CurrentUser):
         permissions=sorted(actor.grants) if screen == "ready" else [],
         has_product_access=has_products,
         product_access_message=None if has_products else users_svc.NO_PRODUCTS_MESSAGE,
+        training_status=user.training_status,
     )
 
 

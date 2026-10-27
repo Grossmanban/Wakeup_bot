@@ -15,7 +15,7 @@ from aiogram.exceptions import (
     TelegramRetryAfter,
     TelegramServerError,
 )
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandObject, CommandStart
 from aiogram.types import (
     ChatMemberUpdated,
     InlineKeyboardButton,
@@ -31,6 +31,7 @@ from app.config import get_settings
 from app.db import get_sessionmaker
 from app.models import AccountStatus, User
 from app.security.telegram_auth import TelegramUser
+from app.services import candidates as candidates_svc
 from app.services import users as users_svc
 from app.timeutil import now_utc
 from bot.outbox_worker import DeliveryError, run_forever
@@ -39,7 +40,10 @@ log = logging.getLogger(__name__)
 router = Router()
 
 START_TEXT = {
-    AccountStatus.UNREGISTERED: "Здравствуйте! Чтобы зарегистрироваться, откройте приложение.",
+    AccountStatus.UNREGISTERED: (
+        "Здравствуйте! Откройте приложение, чтобы заполнить анкету кандидата или "
+        "зарегистрироваться как сотрудник."
+    ),
     AccountStatus.PENDING: "Ваша заявка на рассмотрении. Мы сообщим о решении.",
     AccountStatus.REJECTED: "Ваша заявка отклонена. Можно подать новую в приложении.",
     AccountStatus.ACTIVE: "Откройте приложение, чтобы продолжить работу.",
@@ -58,7 +62,7 @@ def _app_keyboard() -> InlineKeyboardMarkup | None:
 
 
 @router.message(CommandStart(), F.chat.type == "private")
-async def on_start(message: Message) -> None:
+async def on_start(message: Message, command: CommandObject) -> None:
     tg = message.from_user
     assert tg is not None
     async with get_sessionmaker()() as session:
@@ -70,6 +74,9 @@ async def on_start(message: Message) -> None:
             started_bot=True,
         )
         await session.commit()
+        payload = (command.args or "").strip()
+        if payload.startswith("ref_"):
+            await candidates_svc.record_visit(session, user, payload[4:])
         status = user.status
     text = users_svc.STATUS_MESSAGES.get(status) or START_TEXT[status]
     blocked = status in users_svc.STATUS_MESSAGES

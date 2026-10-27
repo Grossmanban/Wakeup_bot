@@ -2,6 +2,8 @@ import { useState } from "react";
 import { api, Me, MyProduct, newIdempotencyKey, rub, TASK_STATUS_TITLES, TaskListItem } from "../api";
 import { Empty, ErrorBox, Loader, useAction, useLoad } from "../components/ui";
 import { useNav } from "../nav";
+import { TrainingProgress } from "./CandidatesAdmin";
+import { GoalsList } from "./Goals";
 
 export function Work({ me }: { me: Me }) {
   const nav = useNav();
@@ -21,6 +23,7 @@ export function Work({ me }: { me: Me }) {
         <div className="notice">{me.product_access_message}</div>
       )}
 
+      {me.training_status !== "none" && <MyTraining />}
       <h1>Мои задания</h1>
       <ErrorBox error={tasks.error} onRetry={tasks.reload} />
       {tasks.loading && !tasks.data && <Loader />}
@@ -95,6 +98,18 @@ export function Work({ me }: { me: Me }) {
           </button>
         </div>
       ))}
+      <GoalsList me={me} />
     </div>
+  );
+}
+
+function MyTraining() {
+  const t = useLoad(() => api.get<{ training_status: string; progress: Parameters<typeof TrainingProgress>[0]["progress"] }>("/my/training"), []);
+  if (!t.data) return null;
+  return (
+    <>
+      <h1>{t.data.training_status === "completed" ? "Обучение пройдено" : "Обучение"}</h1>
+      <TrainingProgress userId={0} progress={t.data.progress} />
+    </>
   );
 }

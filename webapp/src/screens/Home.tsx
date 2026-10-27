@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Me } from "../api";
 import { FallbackBack, NavProvider, Screen, useNav } from "../nav";
 import { load, save } from "../storage";
+import { Candidates, Trainees } from "./CandidatesAdmin";
 import { MyFinance, Payouts } from "./Finance";
 import { BonusRules, LazyRules } from "./FinanceRules";
+import { GoalsAdmin } from "./Goals";
 import { Import } from "./Import";
 import { Manage, manageSections } from "./Manage";
 import { MyTask } from "./MyTask";
@@ -124,6 +126,12 @@ function ScreenView({ me, screen }: { me: Me; screen: Screen }) {
           return <BonusRules />;
         case "lazyRules":
           return <LazyRules />;
+        case "goals":
+          return <GoalsAdmin />;
+        case "candidates":
+          return <Candidates me={me} />;
+        case "trainees":
+          return <Trainees />;
       }
   }
   return null;

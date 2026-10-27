@@ -30,6 +30,7 @@ class Perm(StrEnum):
     PAYOUTS_MANAGE = "payouts.manage"
     GOALS_MANAGE = "goals.manage"
     CANDIDATES_REVIEW = "candidates.review"
+    REFERRALS_USE = "referrals.use"
     TRAINING_MANAGE = "training.manage"
     BROADCASTS_SEND = "broadcasts.send"
     GROUPS_VIEW = "groups.view"
@@ -56,6 +57,7 @@ PERM_TITLES: dict[Perm, str] = {
     Perm.PAYOUTS_MANAGE: "Выплаты",
     Perm.GOALS_MANAGE: "Цели и соревнования",
     Perm.CANDIDATES_REVIEW: "Кандидаты",
+    Perm.REFERRALS_USE: "Реферальная ссылка",
     Perm.TRAINING_MANAGE: "Обучение",
     Perm.BROADCASTS_SEND: "Рассылки",
     Perm.GROUPS_VIEW: "Членство в группах",

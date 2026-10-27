@@ -56,6 +56,7 @@ export interface NameChange {
 
 export type Screen =
   | "register"
+  | "candidate"
   | "pending"
   | "rejected"
   | "disabled"
@@ -73,6 +74,7 @@ export interface Me {
   permissions: string[];
   has_product_access: boolean;
   product_access_message: string | null;
+  training_status: "none" | "training" | "completed";
 }
 
 export interface Network {
@@ -398,4 +400,8 @@ export async function upload<T>(path: string, form: FormData): Promise<T> {
   const data = await res.json().catch(() => null);
   if (!res.ok) throw new ApiError(res.status, data?.code ?? "error", data?.message ?? `Ошибка сервера (${res.status})`);
   return data as T;
+}
+
+export function initDataHeader(): Record<string, string> {
+  return { Authorization: `tma ${initData()}` };
 }

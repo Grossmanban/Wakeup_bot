@@ -24,6 +24,15 @@ DEFAULTS: dict[str, Any] = {
     "referral_bonus_kop": 0,
     # Предупреждение о малой выборке, если у продукта не задано своё значение.
     "min_sample_units": 20,
+    # Анкета кандидата (ТЗ 12.2): навыки для самооценки 1–10 и версия согласия на обработку ПДн.
+    "candidate_skills": ["Общение с людьми", "Внимательность", "Работа со смартфоном"],
+    "pd_consent_version": "1.0",
+    "pd_consent_url": "",
+    # Шаблон сообщения кандидату от ответственного: {name}, {responsible}, {contact}.
+    "candidate_contact_template": (
+        "Здравствуйте, {name}! Ваша анкета одобрена. Напишите, пожалуйста, "
+        "{responsible} ({contact}) в Telegram, чтобы договориться об обучении."
+    ),
 }
 
 VALIDATORS = {
@@ -41,6 +50,14 @@ VALIDATORS = {
     "invite_cooldown_hours": lambda v: isinstance(v, int) and 0 <= v <= 24 * 30,
     "referral_bonus_kop": lambda v: isinstance(v, int) and v >= 0,
     "min_sample_units": lambda v: isinstance(v, int) and 1 <= v <= 10000,
+    "candidate_skills": lambda v: (
+        isinstance(v, list)
+        and 0 < len(v) <= 20
+        and all(isinstance(x, str) and 0 < len(x.strip()) <= 100 for x in v)
+    ),
+    "pd_consent_version": lambda v: isinstance(v, str) and 0 < len(v) <= 32,
+    "pd_consent_url": lambda v: isinstance(v, str) and len(v) <= 500,
+    "candidate_contact_template": lambda v: isinstance(v, str) and 0 < len(v) <= 2000,
 }
 
 

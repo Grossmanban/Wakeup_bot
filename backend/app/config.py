@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     # Публичный HTTPS-адрес Mini App (кнопка в боте).
     miniapp_url: str = ""
 
+    # Имя бота без @ — для реферальных ссылок t.me/<бот>?start=ref_<код>.
+    bot_username: str = ""
+
     # Сколько секунд initData считается действительной.
     init_data_max_age: int = 24 * 3600
 

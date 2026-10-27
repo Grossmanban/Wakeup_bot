@@ -69,6 +69,15 @@ class User(IdMixin, CreatedAtMixin, Base):
     # Доступ к Mini App отделён от состояния аккаунта (ТЗ 2.3).
     app_access: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
+    # Рефералы и обучение (ТЗ 12)
+    referral_code: Mapped[str | None] = mapped_column(String(16), unique=True)
+    referred_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    # none — не стажёр; training — проходит обучение; completed — обучение подтверждено.
+    training_status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="none", server_default="none"
+    )
+    training_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
     # Может ли бот писать человеку первым: он нажимал /start и не блокировал бота.
     bot_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     bot_blocked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

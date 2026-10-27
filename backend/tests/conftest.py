@@ -13,6 +13,7 @@ os.environ["DATABASE_URL"] = os.environ.get(
 )
 os.environ["OWNER_TELEGRAM_IDS"] = str(OWNER_TG)
 os.environ["MINIAPP_URL"] = "https://app.example.com"
+os.environ["BOT_USERNAME"] = "wakeup_test_bot"
 os.environ["MEDIA_DIR"] = os.environ.get("TEST_MEDIA_DIR", "/tmp/wakeup-test-media")
 
 import httpx  # noqa: E402

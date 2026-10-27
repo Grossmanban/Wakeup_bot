@@ -74,8 +74,8 @@ class DecisionIn(BaseModel):
 
 class MeOut(BaseModel):
     user: UserOut
-    # Что показать на первом экране: register | pending | rejected | disabled | blocked
-    # | no_app_access | ready
+    # Что показать на первом экране: register | candidate | pending | rejected | disabled
+    # | blocked | no_app_access | ready
     screen: str
     message: str | None
     registration: RegistrationOut | None
@@ -84,6 +84,7 @@ class MeOut(BaseModel):
     permissions: list[str]
     has_product_access: bool
     product_access_message: str | None
+    training_status: str = "none"
 
 
 class RoleIn(BaseModel):
