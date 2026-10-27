@@ -1,5 +1,6 @@
 FROM python:3.13-slim
-COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /usr/local/bin/uv
+# uv ставится из PyPI: ghcr.io бывает недоступен из российских сетей.
+RUN pip install --no-cache-dir uv==0.11.32
 # Библиотеки, нужные OpenCV внутри PaddleOCR.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 libgomp1 \

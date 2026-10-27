@@ -1,3 +1,7 @@
+# Имя проекта задано явно: контейнеры и тома (wakeup-*) не пересекаются с другими
+# приложениями на том же сервере.
+name: wakeup
+
 services:
   db:
     image: postgres:16-alpine
@@ -52,12 +56,17 @@ services:
     build:
       context: .
       dockerfile: deploy/Dockerfile.web
+      args:
+        CADDY_MODE: ${CADDY_MODE:-standard}
     restart: unless-stopped
     environment:
       DOMAIN: ${DOMAIN:?задайте DOMAIN в .env}
+      DUCKDNS_TOKEN: ${DUCKDNS_TOKEN:-}
     ports:
-      - "80:80"
-      - "443:443"
+      # Если 80/443 заняты другим сервисом, install.sh задаёт, например,
+      # HTTP_PUBLISH=127.0.0.1:18080 и HTTPS_PUBLISH=8443 (режим CADDY_MODE=duckdns).
+      - "${HTTP_PUBLISH:-80}:80"
+      - "${HTTPS_PUBLISH:-443}:443"
     volumes:
       - caddy_data:/data
     depends_on:

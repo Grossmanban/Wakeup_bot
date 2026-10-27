@@ -1,0 +1,12 @@
+# Режим «порты 80/443 заняты другим сервисом»: сайт открывается на отдельном порту,
+# сертификат выпускается через DNS-проверку DuckDNS, порты 80/443 не нужны.
+{
+	auto_https disable_redirects
+}
+
+{$DOMAIN} {
+	tls {
+		dns duckdns {env.DUCKDNS_TOKEN}
+	}
+	import site.caddy
+}

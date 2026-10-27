@@ -1,0 +1,4 @@
+# Обычный режим: порты 80 и 443 свободны, сертификат — по HTTP-проверке Let's Encrypt.
+{$DOMAIN} {
+	import site.caddy
+}
