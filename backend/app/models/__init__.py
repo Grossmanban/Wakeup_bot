@@ -14,6 +14,15 @@ from app.models.finance import (
     PayoutAllocation,
     PayoutStatus,
 )
+from app.models.groups import (
+    PURPOSES,
+    DayPost,
+    GroupInvite,
+    GroupMembership,
+    PhotoDelivery,
+    PhotoRoute,
+    TgGroup,
+)
 from app.models.org import Network, Supervision, UserNetwork
 from app.models.outbox import OutboxStatus, TelegramOutbox
 from app.models.people import (
@@ -67,6 +76,13 @@ from app.models.users import (
 )
 
 __all__ = [
+    "PURPOSES",
+    "DayPost",
+    "GroupInvite",
+    "GroupMembership",
+    "PhotoDelivery",
+    "PhotoRoute",
+    "TgGroup",
     "Candidate",
     "CandidateEvent",
     "CandidateStatus",

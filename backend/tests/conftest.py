@@ -84,3 +84,57 @@ def fake_ocr():
     ocr.set_engine(engine)
     yield engine
     ocr.set_engine(None)
+
+
+class FakeGateway:
+    """Подменный Telegram: записывает вызовы, умеет имитировать ошибки."""
+
+    def __init__(self):
+        from app.telegram_api import TelegramError
+
+        self.Error = TelegramError
+        self.members: dict[tuple[int, int], str] = {}
+        self.unknown: set[tuple[int, int]] = set()
+        self.rights = {"status": "administrator", "can_invite_users": True, "can_manage_topics": True}
+        self.sent: list[tuple[str, int, dict]] = []
+        self.fail_send = None
+        self.fail_link = None
+        self.links = 0
+        self.topics: list[tuple[int, str]] = []
+
+    async def get_chat(self, chat_id):
+        return {"id": chat_id, "title": f"Группа {chat_id}", "type": "supergroup", "is_forum": True}
+
+    async def member_status(self, chat_id, user_id):
+        if (chat_id, user_id) in self.unknown:
+            raise self.Error("Bad Request: PARTICIPANT_ID_INVALID", permanent=True)
+        return self.members.get((chat_id, user_id), "left")
+
+    async def bot_rights(self, chat_id):
+        return dict(self.rights)
+
+    async def create_invite_link(self, chat_id, name, expire_seconds):
+        if self.fail_link:
+            raise self.fail_link
+        self.links += 1
+        return f"https://t.me/+invite{self.links}"
+
+    async def create_forum_topic(self, chat_id, name):
+        self.topics.append((chat_id, name))
+        return 100 + len(self.topics)
+
+    async def send(self, method, chat_id, payload):
+        if self.fail_send:
+            raise self.fail_send
+        self.sent.append((method, chat_id, payload))
+        return 1000 + len(self.sent)
+
+
+@pytest.fixture(autouse=True)
+def gateway():
+    from app import telegram_api
+
+    gw = FakeGateway()
+    telegram_api.set_gateway(gw)
+    yield gw
+    telegram_api.set_gateway(None)

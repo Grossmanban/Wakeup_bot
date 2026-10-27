@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app import timeutil
 from app.models import JobRun
-from app.services import finance
+from app.services import finance, groups
 
 log = logging.getLogger(__name__)
 
@@ -69,6 +69,10 @@ async def run_due(
         await run(
             "lazy_close", yesterday.isoformat(), lambda s: finance.close_lazy_day(s, yesterday)
         )
+
+    # Новички: пересчёт рабочих дней и даты перехода с записью изменений в аудит.
+    if now.time() >= time(0, 20):
+        await run("newbie_recalc", today.isoformat(), groups.recalc_all)
 
     for hook in EXTRA_JOBS:
         await hook(sessionmaker, now, run)

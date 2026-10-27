@@ -6,6 +6,7 @@ import { Candidates, Trainees } from "./CandidatesAdmin";
 import { MyFinance, Payouts } from "./Finance";
 import { BonusRules, LazyRules } from "./FinanceRules";
 import { GoalsAdmin } from "./Goals";
+import { GroupsSettings, Membership } from "./Groups";
 import { Import } from "./Import";
 import { Manage, manageSections } from "./Manage";
 import { MyTask } from "./MyTask";
@@ -131,6 +132,10 @@ function ScreenView({ me, screen }: { me: Me; screen: Screen }) {
           return <GoalsAdmin />;
         case "stats":
           return <StatsAdmin me={me} />;
+        case "membership":
+          return <Membership me={me} />;
+        case "groups":
+          return <GroupsSettings />;
         case "candidates":
           return <Candidates me={me} />;
         case "trainees":

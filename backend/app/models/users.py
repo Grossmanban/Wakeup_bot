@@ -1,9 +1,10 @@
 import enum
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -77,6 +78,8 @@ class User(IdMixin, CreatedAtMixin, Base):
         String(16), nullable=False, default="none", server_default="none"
     )
     training_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Дата третьего рабочего дня: с неё человек — действующий сотрудник, а не новичок (ТЗ 15.3).
+    became_regular_on: Mapped[date | None] = mapped_column(Date)
 
     # Может ли бот писать человеку первым: он нажимал /start и не блокировал бота.
     bot_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

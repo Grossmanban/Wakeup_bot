@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.models import OutboxStatus, TelegramOutbox, User
 from app.services import audit
 from app.services.audit import Category
+from app.telegram_api import TelegramError
 from app.timeutil import now_utc
 
 log = logging.getLogger(__name__)
@@ -24,23 +25,15 @@ log = logging.getLogger(__name__)
 BACKOFF_SECONDS = (10, 30, 60, 300, 900, 3600, 3 * 3600)
 
 
-class DeliveryError(Exception):
-    def __init__(
-        self,
-        message: str,
-        *,
-        permanent: bool = False,
-        retry_after: float | None = None,
-        bot_blocked: bool = False,
-    ):
-        super().__init__(message)
-        self.permanent = permanent
-        self.retry_after = retry_after
-        self.bot_blocked = bot_blocked
-
+# Ошибка доставки — та же, что у шлюза Telegram.
+DeliveryError = TelegramError
 
 # (method, chat_id, payload) -> message_id
 Sender = Callable[[str, int, dict[str, Any]], Awaitable[int | None]]
+
+# Обработчики результата по типу объекта: (session, ref_id, ok, message_id, error) -> None
+ResultHook = Callable[[AsyncSession, int, bool, int | None, str | None], Awaitable[None]]
+RESULT_HOOKS: dict[str, ResultHook] = {}
 
 
 async def _process_one(session: AsyncSession, send: Sender) -> bool:
@@ -79,6 +72,7 @@ async def _process_one(session: AsyncSession, send: Sender) -> bool:
                 user = await session.get(User, msg.related_user_id)
                 if user is not None and user.telegram_id == msg.chat_id:
                     user.bot_blocked_at = now_utc()
+            await _hook(session, msg, False, None, msg.last_error)
         else:
             delay = e.retry_after or BACKOFF_SECONDS[msg.attempts - 1]
             msg.next_attempt_at = now_utc() + timedelta(seconds=delay)
@@ -87,8 +81,14 @@ async def _process_one(session: AsyncSession, send: Sender) -> bool:
         msg.sent_at = now_utc()
         msg.tg_message_id = message_id
         msg.last_error = None
+        await _hook(session, msg, True, message_id, None)
     await session.commit()
     return True
+
+
+async def _hook(session: AsyncSession, msg: TelegramOutbox, ok: bool, message_id, error) -> None:
+    if msg.ref_type and msg.ref_id is not None and (hook := RESULT_HOOKS.get(msg.ref_type)):
+        await hook(session, msg.ref_id, ok, message_id, error)
 
 
 async def process_due(
@@ -114,3 +114,12 @@ async def run_forever(
             n = 0
         if n == 0:
             await asyncio.sleep(idle_seconds)
+
+
+def _register_hooks() -> None:
+    from app.services import groups
+
+    RESULT_HOOKS["invite"] = groups.on_invite_result
+
+
+_register_hooks()

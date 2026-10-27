@@ -5,16 +5,8 @@
 
 import asyncio
 import logging
-from typing import Any
 
 from aiogram import Bot, Dispatcher, F, Router
-from aiogram.exceptions import (
-    TelegramBadRequest,
-    TelegramForbiddenError,
-    TelegramNetworkError,
-    TelegramRetryAfter,
-    TelegramServerError,
-)
 from aiogram.filters import CommandObject, CommandStart
 from aiogram.types import (
     ChatMemberUpdated,
@@ -32,9 +24,11 @@ from app.db import get_sessionmaker
 from app.models import AccountStatus, User
 from app.security.telegram_auth import TelegramUser
 from app.services import candidates as candidates_svc
+from app.services import groups as groups_svc
 from app.services import users as users_svc
+from app.telegram_api import get_gateway
 from app.timeutil import now_utc
-from bot.outbox_worker import DeliveryError, run_forever
+from bot.outbox_worker import run_forever
 
 log = logging.getLogger(__name__)
 router = Router()
@@ -83,6 +77,34 @@ async def on_start(message: Message, command: CommandObject) -> None:
     await message.answer(text, reply_markup=None if blocked else _app_keyboard())
 
 
+@router.my_chat_member(F.chat.type.in_({"group", "supergroup"}))
+async def on_bot_in_group(event: ChatMemberUpdated) -> None:
+    """Бота добавили в группу, сделали админом или удалили (ТЗ 15.1)."""
+    status = event.new_chat_member.status
+    async with get_sessionmaker()() as session:
+        await groups_svc.upsert_group(
+            session,
+            chat_id=event.chat.id,
+            title=event.chat.title or "",
+            chat_type=event.chat.type,
+            is_forum=bool(event.chat.is_forum),
+            bot_status=status.value if hasattr(status, "value") else str(status),
+        )
+
+
+@router.chat_member(F.chat.type.in_({"group", "supergroup"}))
+async def on_member_change(event: ChatMemberUpdated) -> None:
+    """Вступление и выход участников (приходит, если бот — администратор группы)."""
+    status = event.new_chat_member.status
+    async with get_sessionmaker()() as session:
+        await groups_svc.on_member_event(
+            session,
+            event.chat.id,
+            event.new_chat_member.user.id,
+            status.value if hasattr(status, "value") else str(status),
+        )
+
+
 @router.my_chat_member(F.chat.type == "private")
 async def on_my_chat_member(event: ChatMemberUpdated) -> None:
     """Пользователь заблокировал или разблокировал бота."""
@@ -101,34 +123,6 @@ async def on_my_chat_member(event: ChatMemberUpdated) -> None:
         await session.commit()
 
 
-def make_sender(bot: Bot):
-    async def send(method: str, chat_id: int, payload: dict[str, Any]) -> int | None:
-        if method != "sendMessage":
-            raise DeliveryError(f"неизвестный метод {method}", permanent=True)
-        markup = payload.get("reply_markup")
-        try:
-            msg = await bot.send_message(
-                chat_id=chat_id,
-                text=payload["text"],
-                parse_mode=payload.get("parse_mode"),
-                reply_markup=InlineKeyboardMarkup.model_validate(markup) if markup else None,
-            )
-        except TelegramRetryAfter as e:
-            raise DeliveryError(str(e), retry_after=e.retry_after) from e
-        except TelegramForbiddenError as e:
-            # Человек не нажимал /start или заблокировал бота — повтор не поможет.
-            raise DeliveryError(
-                str(e), permanent=True, bot_blocked="blocked" in e.message.lower()
-            ) from e
-        except TelegramBadRequest as e:
-            raise DeliveryError(str(e), permanent=True) from e
-        except (TelegramNetworkError, TelegramServerError) as e:
-            raise DeliveryError(str(e)) from e
-        return msg.message_id
-
-    return send
-
-
 async def main() -> None:
     logging.basicConfig(level=logging.INFO)
     settings = get_settings()
@@ -143,7 +137,7 @@ async def main() -> None:
             )
         )
 
-    worker = asyncio.create_task(run_forever(get_sessionmaker(), make_sender(bot)))
+    worker = asyncio.create_task(run_forever(get_sessionmaker(), get_gateway().send))
     scheduler = asyncio.create_task(run_jobs_forever())
     try:
         await dp.start_polling(bot, allowed_updates=["message", "my_chat_member", "chat_member"])

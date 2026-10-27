@@ -31,6 +31,10 @@ class TelegramOutbox(IdMixin, CreatedAtMixin, Base):
     method: Mapped[str] = mapped_column(String(32), nullable=False, default="sendMessage")
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     related_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    # К какому объекту относится сообщение (приглашение, фотоотчёт…): его статус обновляется
+    # по результату отправки.
+    ref_type: Mapped[str | None] = mapped_column(String(32))
+    ref_id: Mapped[int | None] = mapped_column(BigInteger)
 
     status: Mapped[OutboxStatus] = mapped_column(
         str_enum(OutboxStatus, "outbox_status"), nullable=False, default=OutboxStatus.PENDING

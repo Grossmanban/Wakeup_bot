@@ -19,10 +19,12 @@ import {
 import { Empty, ErrorBox, Loader, ReasonDialog, StatusChip, useAction, useLoad } from "../components/ui";
 import { confirmAction } from "../telegram";
 import { UserFinance } from "./Finance";
+import { InviteDialog } from "./Groups";
 
 export function UserCard({ me, userId, onOpen }: { me: Me; userId: number; onOpen: (id: number) => void }) {
   const { data, error, loading, reload } = useLoad(() => api.get<UserProfile>(`/users/${userId}`), [userId]);
   const can = (p: string) => me.is_owner || me.permissions.includes(p);
+  const [inviting, setInviting] = useState(false);
 
   if (loading && !data) return <Loader />;
   if (error || !data) return <ErrorBox error={error ?? "Не удалось загрузить"} onRetry={reload} />;
@@ -70,6 +72,12 @@ export function UserCard({ me, userId, onOpen }: { me: Me; userId: number; onOpe
         <PeopleLine title="Подчинённые" people={data.subordinates} onOpen={onOpen} />
       </div>
       {can("org.manage") && registered && <OrgEditor profile={data} onChanged={reload} />}
+      {can("groups.invite") && u.status === "active" && (
+        <button style={{ marginBottom: 10 }} onClick={() => setInviting(true)}>
+          Пригласить в группу
+        </button>
+      )}
+      {inviting && <InviteDialog userIds={[u.id]} onClose={() => setInviting(false)} />}
 
       {me.is_owner && u.role !== "owner" && registered && <ProductsEditor userId={u.id} />}
       {me.is_owner && u.role !== "owner" && registered && <RoleEditor user={data} onChanged={reload} />}
