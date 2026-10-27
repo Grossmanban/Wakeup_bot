@@ -26,6 +26,7 @@ export function manageSections(me: Me): Section[] {
     s.push({ id: "daySummary", title: "Сводка по дням", hint: "Кто работает, план и факт" });
     s.push({ id: "distribution", title: "Распред", hint: "Расстановка по точкам" });
   }
+  if (can("stats.view")) s.push({ id: "stats", title: "Статистика", hint: "Производительность и качество" });
   if (can("payouts.manage")) s.push({ id: "payouts", title: "Выплаты", hint: "Расчёт и подтверждение" });
   if (can("finance.manage")) {
     s.push({ id: "bonusRules", title: "Автоматические бонусы", hint: "Правила начисления" });

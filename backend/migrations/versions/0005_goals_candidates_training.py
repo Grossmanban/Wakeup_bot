@@ -280,7 +280,10 @@ def upgrade() -> None:
     )
     op.add_column("users", sa.Column("referral_code", sa.String(length=16), nullable=True))
     op.add_column("users", sa.Column("referred_by_id", sa.BigInteger(), nullable=True))
-    op.add_column("users", sa.Column("training_status", sa.String(length=16), nullable=False, server_default="none"))
+    op.add_column(
+        "users",
+        sa.Column("training_status", sa.String(length=16), nullable=False, server_default="none"),
+    )
     op.add_column(
         "users", sa.Column("training_started_at", sa.DateTime(timezone=True), nullable=True)
     )

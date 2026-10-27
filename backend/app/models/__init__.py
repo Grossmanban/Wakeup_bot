@@ -2,6 +2,7 @@ from app.models.audit import AuditEvent
 from app.models.base import Base
 from app.models.finance import (
     BonusRule,
+    DownloadToken,
     EntryKind,
     JobRun,
     LazyConsumption,
@@ -82,6 +83,7 @@ __all__ = [
     "ShiftStatus",
     "WorkPoint",
     "BonusRule",
+    "DownloadToken",
     "EntryKind",
     "JobRun",
     "LazyConsumption",

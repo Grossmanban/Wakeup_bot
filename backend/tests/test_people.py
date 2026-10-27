@@ -79,8 +79,12 @@ async def test_race_and_tie_rules(client):
     r = await client.post(
         "/api/goals",
         json=_goal(
-            kind="competition", mode="race", target_units=2, product_ids=[p["id"]],
-            participants_spec={"type": "users", "ids": [a, b]}, prizes=[{"place": 1, "prize": "Сертификат"}],
+            kind="competition",
+            mode="race",
+            target_units=2,
+            product_ids=[p["id"]],
+            participants_spec={"type": "users", "ids": [a, b]},
+            prizes=[{"place": 1, "prize": "Сертификат"}],
         ),
         headers=auth(OWNER_TG),
     )
@@ -89,15 +93,23 @@ async def test_race_and_tie_rules(client):
     await _approve(client, 124, p["id"], 3)
     d = (await client.get(f"/api/goals/{gid}", headers=auth(OWNER_TG))).json()
     first = d["rows"][0]
-    assert first["full_name"] == "Быстрая Анна" and first["place"] == 1 and first["prize"] == "Сертификат"
+    assert (
+        first["full_name"] == "Быстрая Анна"
+        and first["place"] == 1
+        and first["prize"] == "Сертификат"
+    )
     assert d["rows"][1]["place"] == 2 and d["rows"][1]["prize"] is None
 
     # Максимум за период, ничья с общим местом.
     r = await client.post(
         "/api/goals",
         json=_goal(
-            kind="competition", mode="max", target_units=None, product_ids=[p["id"]],
-            participants_spec={"type": "users", "ids": [a, b]}, tie_break="shared",
+            kind="competition",
+            mode="max",
+            target_units=None,
+            product_ids=[p["id"]],
+            participants_spec={"type": "users", "ids": [a, b]},
+            tie_break="shared",
             counting="completed",
         ),
         headers=auth(OWNER_TG),
@@ -113,19 +125,27 @@ async def test_team_goal_and_frozen_participants(client):
     a = await make_active(client, 125, "Анна", "А")
     b = await make_active(client, 126, "Борис", "Б")
     for uid in (a, b):
-        await client.put(f"/api/users/{uid}/networks", json={"network_ids": [net["id"]]}, headers=auth(OWNER_TG))
+        await client.put(
+            f"/api/users/{uid}/networks", json={"network_ids": [net["id"]]}, headers=auth(OWNER_TG)
+        )
     p = await ready_product(client, [a, b], n_tasks=6, active_task_limit=6)
     r = await client.post(
         "/api/goals",
         json=_goal(
-            scope="team", ranking="min_each", target_units=2, product_ids=[p["id"]],
-            participants_spec={"type": "network", "ids": [net["id"]]}, visibility="all",
+            scope="team",
+            ranking="min_each",
+            target_units=2,
+            product_ids=[p["id"]],
+            participants_spec={"type": "network", "ids": [net["id"]]},
+            visibility="all",
         ),
         headers=auth(OWNER_TG),
     )
     gid = r.json()["id"]
     late = await make_active(client, 127, "Вера", "Поздняя")
-    await client.put(f"/api/users/{late}/networks", json={"network_ids": [net["id"]]}, headers=auth(OWNER_TG))
+    await client.put(
+        f"/api/users/{late}/networks", json={"network_ids": [net["id"]]}, headers=auth(OWNER_TG)
+    )
     await _approve(client, 125, p["id"], 3)
     await _approve(client, 126, p["id"], 1)
     d = (await client.get(f"/api/goals/{gid}", headers=auth(OWNER_TG))).json()
@@ -135,7 +155,9 @@ async def test_team_goal_and_frozen_participants(client):
 
 async def _visitor(tg_id: int, code: str) -> User:
     async with get_sessionmaker()() as s:
-        u = await users.upsert_from_telegram(s, TelegramUser(tg_id, "Гость", None, None), started_bot=True)
+        u = await users.upsert_from_telegram(
+            s, TelegramUser(tg_id, "Гость", None, None), started_bot=True
+        )
         await s.commit()
         await candidates.record_visit(s, u, code)
         return u
@@ -145,8 +167,13 @@ async def _fill(client, tg):
     r = await client.put(
         "/api/my/candidate",
         json={
-            "first_name": "Ольга", "last_name": "Новикова", "location": "м. Сокол", "days_per_week": 4,
-            "can_train": True, "truthful": True, "pd_consent": True,
+            "first_name": "Ольга",
+            "last_name": "Новикова",
+            "location": "м. Сокол",
+            "days_per_week": 4,
+            "can_train": True,
+            "truthful": True,
+            "pd_consent": True,
             "skills": {"Общение с людьми": 8, "Внимательность": 9, "Работа со смартфоном": 10},
         },
         headers=auth(tg),
@@ -183,16 +210,22 @@ async def test_candidate_full_flow_with_referral_and_training(client, session):
     # Рассмотрение: уточнение → исправление → одобрение.
     h = auth(OWNER_TG)
     await client.post(f"/api/candidates/{cid}/review/take", json={}, headers=h)
-    r = await client.post(f"/api/candidates/{cid}/review/request_info", json={"text": "Уточните метро"}, headers=h)
+    r = await client.post(
+        f"/api/candidates/{cid}/review/request_info", json={"text": "Уточните метро"}, headers=h
+    )
     assert r.json()["status"] == "needs_info"
     await client.put("/api/my/candidate", json={"location": "м. Аэропорт"}, headers=auth(131))
     r = await client.post("/api/my/candidate/submit", headers=auth(131))
     assert r.json()["candidate"]["status"] == "submitted"
-    assert (await client.post(f"/api/candidates/{cid}/review/approve", json={}, headers=h)).json()["status"] == "approved"
+    assert (await client.post(f"/api/candidates/{cid}/review/approve", json={}, headers=h)).json()[
+        "status"
+    ] == "approved"
 
     # Ответственный и шаблон сообщения: статус доставки — из очереди Telegram, а не «успех».
     resp = await make_active(client, 132, "Иван", "Ответственный", role="instructor")
-    r = await client.put(f"/api/candidates/{cid}/responsible", json={"responsible_id": resp}, headers=h)
+    r = await client.put(
+        f"/api/candidates/{cid}/responsible", json={"responsible_id": resp}, headers=h
+    )
     key = r.json()["message_key"]
     msg = await session.scalar(select(TelegramOutbox).where(TelegramOutbox.dedup_key == key))
     assert "Ответственный Иван" in msg.payload["text"]
@@ -212,7 +245,9 @@ async def test_candidate_full_flow_with_referral_and_training(client, session):
     await client.post(f"/api/my/trainings/{t['id']}/confirm", headers=auth(131))
     r = await client.post(f"/api/trainings/{t['id']}/cancel", json={"reason": "Перенос"}, headers=h)
     assert r.status_code == 409 and r.json()["code"] == "confirm_required"
-    r = await client.post(f"/api/trainings/{t['id']}/cancel", json={"reason": "Перенос", "force": True}, headers=h)
+    r = await client.post(
+        f"/api/trainings/{t['id']}/cancel", json={"reason": "Перенос", "force": True}, headers=h
+    )
     assert r.json()["status"] == "cancelled"
 
     r = await client.post(f"/api/candidates/{cid}/start-training", headers=h)
@@ -228,26 +263,41 @@ async def test_candidate_full_flow_with_referral_and_training(client, session):
     await run_task(client, 131, t3["id"])  # третья — на модерации
     prog = (await client.get("/api/my/training", headers=auth(131))).json()["progress"][0]
     assert (prog["actual_units"], prog["confirmed_units"], prog["paid_units"], prog["state"]) == (
-        3, 0, 2, "awaiting_confirmation",
+        3,
+        0,
+        2,
+        "awaiting_confirmation",
     )
     # Подтверждена только часть объёма.
     r = await client.post(
-        f"/api/trainees/{trainee}/confirm-units", json={"product_id": p["id"], "confirmed_units": 2}, headers=h
+        f"/api/trainees/{trainee}/confirm-units",
+        json={"product_id": p["id"], "confirmed_units": 2},
+        headers=h,
     )
     assert r.json()["training_status"] == "training"
     r = await client.post(
-        f"/api/trainees/{trainee}/confirm-units", json={"product_id": p["id"], "confirmed_units": 3}, headers=h
+        f"/api/trainees/{trainee}/confirm-units",
+        json={"product_id": p["id"], "confirmed_units": 3},
+        headers=h,
     )
     assert r.json()["training_status"] == "completed"
-    bonus = await session.scalar(select(LedgerEntry).where(LedgerEntry.kind == EntryKind.REFERRAL_BONUS))
+    bonus = await session.scalar(
+        select(LedgerEntry).where(LedgerEntry.kind == EntryKind.REFERRAL_BONUS)
+    )
     assert bonus.user_id == referrer and bonus.amount_kop == 50000
 
     # Подтверждённый объём уменьшили — бонус не удаляется, а корректируется отдельной записью.
     r = await client.post(
-        f"/api/trainees/{trainee}/confirm-units", json={"product_id": p["id"], "confirmed_units": 1}, headers=h
+        f"/api/trainees/{trainee}/confirm-units",
+        json={"product_id": p["id"], "confirmed_units": 1},
+        headers=h,
     )
     assert r.json()["training_status"] == "training"
-    kinds = (await session.execute(select(LedgerEntry.kind).where(LedgerEntry.user_id == referrer))).scalars().all()
+    kinds = (
+        (await session.execute(select(LedgerEntry.kind).where(LedgerEntry.user_id == referrer)))
+        .scalars()
+        .all()
+    )
     assert sorted(kinds) == sorted([EntryKind.REFERRAL_BONUS, EntryKind.BONUS_REVERSAL])
 
     stats = (await client.get("/api/my/referral", headers=auth(130))).json()

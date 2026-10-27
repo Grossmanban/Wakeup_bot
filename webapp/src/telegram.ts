@@ -14,6 +14,7 @@ interface TgWebApp {
   expand(): void;
   showConfirm?(message: string, cb: (ok: boolean) => void): void;
   openLink?(url: string): void;
+  downloadFile?(params: { url: string; file_name: string }, cb?: (accepted: boolean) => void): void;
   BackButton?: TgBackButton;
   HapticFeedback?: { notificationOccurred(t: "error" | "success" | "warning"): void };
   onEvent?(event: string, cb: () => void): void;
@@ -61,4 +62,19 @@ export function backButton(): TgBackButton | undefined {
 export function openExternal(url: string) {
   if (tg?.openLink && tg.isVersionAtLeast?.("6.1")) tg.openLink(url);
   else window.open(url, "_blank", "noopener");
+}
+
+/** Скачать файл: нативно в Telegram (Bot API 8.0+), иначе — обычной ссылкой. */
+export function downloadFile(url: string, fileName: string) {
+  const absolute = new URL(url, window.location.href).toString();
+  if (tg?.downloadFile && tg.isVersionAtLeast?.("8.0")) {
+    tg.downloadFile({ url: absolute, file_name: fileName });
+    return;
+  }
+  const a = document.createElement("a");
+  a.href = absolute;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }

@@ -4,6 +4,7 @@ import { ErrorBox, Field, useAction } from "../components/ui";
 import { getTheme, setTheme, ThemeChoice } from "../theme";
 import { confirmAction } from "../telegram";
 import { Referral } from "./CandidatesAdmin";
+import { MyStats } from "./Stats";
 
 export function Profile({ me, onReload }: { me: Me; onReload: () => void }) {
   const [editing, setEditing] = useState(false);
@@ -71,6 +72,7 @@ export function Profile({ me, onReload }: { me: Me; onReload: () => void }) {
       )}
       {editing && <NameChangeForm me={me} onDone={() => { setEditing(false); onReload(); }} onCancel={() => setEditing(false)} />}
 
+      <MyStats />
       {(me.is_owner || me.permissions.includes("referrals.use")) && <Referral />}
 
       <h2>Тема</h2>

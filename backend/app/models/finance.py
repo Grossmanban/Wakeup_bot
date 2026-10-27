@@ -197,3 +197,15 @@ class JobRun(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     result: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+
+class DownloadToken(Base):
+    """Короткоживущая ссылка на выгрузку: файл скачивается без заголовка авторизации."""
+
+    __tablename__ = "download_tokens"
+
+    token: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    params: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

@@ -16,6 +16,7 @@ import { Profile } from "./Profile";
 import { Requests } from "./Requests";
 import { ManualReview, Moderation } from "./Review";
 import { Schedule } from "./Schedule";
+import { StatsAdmin } from "./Stats";
 import { DaySummary, Distribution, Points, SettingsScreen, ShiftRequests } from "./ScheduleAdmin";
 import { TaskAdminCard, TasksAdmin } from "./TasksAdmin";
 import { UserCard } from "./UserCard";
@@ -128,6 +129,8 @@ function ScreenView({ me, screen }: { me: Me; screen: Screen }) {
           return <LazyRules />;
         case "goals":
           return <GoalsAdmin />;
+        case "stats":
+          return <StatsAdmin me={me} />;
         case "candidates":
           return <Candidates me={me} />;
         case "trainees":

@@ -12,6 +12,7 @@ from app.api.routes import (
     requests,
     schedule,
     settings,
+    stats,
     tasks,
     users,
 )
@@ -53,6 +54,7 @@ def create_app() -> FastAPI:
         settings.router,
         finance.router,
         people.router,
+        stats.router,
     ):
         app.include_router(r, prefix="/api")
     return app

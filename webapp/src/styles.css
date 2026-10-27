@@ -248,7 +248,7 @@ label.check input {
 
 .kv {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
   gap: 4px 12px;
   font-size: 14px;
 }
@@ -258,5 +258,6 @@ label.check input {
 }
 
 .kv > * {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
