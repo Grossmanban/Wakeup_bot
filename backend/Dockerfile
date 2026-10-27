@@ -7,7 +7,10 @@ RUN apt-get update \
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy PATH="/app/.venv/bin:$PATH"
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev --extra ocr --no-install-project
+# WITH_OCR=0 — образ без PaddleOCR (меньше на ~1 ГБ) для серверов с OCR_ENGINE=none.
+ARG WITH_OCR=1
+RUN if [ "$WITH_OCR" = "1" ]; then EXTRA="--extra ocr"; else EXTRA=""; fi \
+    && uv sync --frozen --no-dev $EXTRA --no-install-project
 COPY . .
 # По умолчанию — API; бот запускается с командой `python -m bot.main`.
 CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers"]

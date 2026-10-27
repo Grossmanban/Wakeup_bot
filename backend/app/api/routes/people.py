@@ -42,7 +42,7 @@ class GoalIn(BaseModel):
     period_to: date
     deadline_type: Literal["period", "deadline"] = "period"
     visibility: Literal["participants", "all", "managers"] = "participants"
-    counting: Literal["approved", "completed"] = "approved"
+    counting: Literal["completed", "approved", "paid"] = "approved"
     freeze_participants: bool = True
     mode: Literal["race", "max"] | None = None
     ranking: Literal["individual", "total", "average", "min_each"] = "individual"

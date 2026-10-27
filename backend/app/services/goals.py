@@ -208,9 +208,11 @@ def _place(rows: list[dict[str, Any]], key, tie_break: str) -> None:
 
 async def results(session: AsyncSession, goal: Goal) -> dict[str, Any]:
     ids = await participants(session, goal)
-    statuses = (
-        (TaskStatus.APPROVED, TaskStatus.PAID) if goal.counting == "approved" else DONE_STATUSES
-    )
+    statuses = {
+        "completed": DONE_STATUSES,  # все сделанные единицы продукта
+        "approved": (TaskStatus.APPROVED, TaskStatus.PAID),  # допущенные к оплате
+        "paid": (TaskStatus.PAID,),  # только вошедшие в подтверждённую выплату
+    }[goal.counting]
     lo, hi = timeutil.msk_day_bounds(goal.period_from, goal.period_to)
     tasks = (
         await session.execute(

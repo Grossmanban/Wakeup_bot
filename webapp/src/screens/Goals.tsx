@@ -26,7 +26,7 @@ interface Goal {
   period_to: string;
   deadline_type: "period" | "deadline";
   visibility: "participants" | "all" | "managers";
-  counting: "approved" | "completed";
+  counting: "completed" | "approved" | "paid";
   freeze_participants: boolean;
   mode: "race" | "max" | null;
   ranking: "individual" | "total" | "average" | "min_each";
@@ -105,7 +105,7 @@ export function GoalView({ id }: { id: number }) {
           {d.period_from} — {d.period_to}
         </span>
         <span>Учёт</span>
-        <span>{d.counting === "approved" ? "Допущенные к оплате единицы" : "Выполненные единицы"}</span>
+        <span>{COUNTING[d.counting]}</span>
         {d.target_units && (
           <>
             <span>{d.kind === "competition" && d.mode === "race" ? "Порог" : "Цель"}</span>
@@ -149,6 +149,12 @@ export function GoalView({ id }: { id: number }) {
     </div>
   );
 }
+
+const COUNTING: Record<Goal["counting"], string> = {
+  completed: "Все выполненные единицы",
+  approved: "Допущенные к оплате единицы",
+  paid: "Только оплаченные единицы",
+};
 
 const SPEC_TITLES: Record<string, string> = {
   users: "Сотрудники",
@@ -329,8 +335,9 @@ function GoalEditor({ goal, onCancel, onSaved }: { goal: Partial<Goal>; onCancel
       <div className="row" style={{ flexWrap: "nowrap" }}>
         <Field label="Учитывать">
           <select value={g.counting} onChange={(e) => setG({ ...g, counting: e.target.value as Goal["counting"] })}>
-            <option value="approved">Допущенные к оплате</option>
             <option value="completed">Все выполненные</option>
+            <option value="approved">Допущенные к оплате</option>
+            <option value="paid">Только оплаченные</option>
           </select>
         </Field>
         <Field label="Видимость">

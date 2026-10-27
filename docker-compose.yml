@@ -14,7 +14,10 @@ services:
       retries: 10
 
   api:
-    build: ./backend
+    build:
+      context: ./backend
+      args:
+        WITH_OCR: ${WITH_OCR:-1}
     restart: unless-stopped
     env_file: .env
     environment:
@@ -29,7 +32,10 @@ services:
         condition: service_healthy
 
   bot:
-    build: ./backend
+    build:
+      context: ./backend
+      args:
+        WITH_OCR: ${WITH_OCR:-1}
     restart: unless-stopped
     command: ["python", "-m", "bot.main"]
     env_file: .env

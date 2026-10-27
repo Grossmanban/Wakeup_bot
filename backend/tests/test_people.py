@@ -310,3 +310,43 @@ async def test_candidate_review_permissions(client):
     await make_active(client, 133, role="admin")
     assert (await client.get("/api/candidates", headers=auth(133))).status_code == 403
     assert (await client.get("/api/my/referral", headers=auth(133))).status_code == 403
+
+
+async def test_goal_counting_completed_approved_paid(client):
+    """Цель может считать все сделанные, допущенные к оплате или только оплаченные единицы."""
+    await owner_ready(client)
+    a = await make_active(client, 140, "Вера", "Счётная")
+    p = await ready_product(client, [a], n_tasks=3, active_task_limit=3)
+    gids = {}
+    for mode in ("completed", "approved", "paid"):
+        r = await client.post(
+            "/api/goals",
+            json=_goal(
+                participants_spec={"type": "users", "ids": [a]},
+                product_ids=[p["id"]],
+                counting=mode,
+                visibility="all",
+            ),
+            headers=auth(OWNER_TG),
+        )
+        assert r.status_code == 201, r.text
+        gids[mode] = r.json()["id"]
+    await _approve(client, 140, p["id"], 2)
+    t = await take(client, 140, p["id"])
+    await run_task(client, 140, t["id"])  # третье — на модерации
+
+    async def units():
+        out = {}
+        for mode, gid in gids.items():
+            d = (await client.get(f"/api/goals/{gid}", headers=auth(OWNER_TG))).json()
+            out[mode] = d["aggregate"]["total_units"]
+        return out
+
+    assert await units() == {"completed": 3, "approved": 2, "paid": 0}
+    r = await client.post(
+        f"/api/users/{a}/payouts",
+        json={"start": str(TODAY), "end": str(TODAY), "idempotency_key": "goal-paid-1"},
+        headers=auth(OWNER_TG),
+    )
+    assert r.status_code == 201, r.text
+    assert await units() == {"completed": 3, "approved": 2, "paid": 2}
