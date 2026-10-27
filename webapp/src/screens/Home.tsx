@@ -11,12 +11,14 @@ import { Products } from "./Products";
 import { Profile } from "./Profile";
 import { Requests } from "./Requests";
 import { ManualReview, Moderation } from "./Review";
+import { Schedule } from "./Schedule";
+import { DaySummary, Distribution, Points, SettingsScreen, ShiftRequests } from "./ScheduleAdmin";
 import { TaskAdminCard, TasksAdmin } from "./TasksAdmin";
 import { UserCard } from "./UserCard";
 import { Users } from "./Users";
 import { Work } from "./Work";
 
-type Tab = "work" | "profile" | "manage";
+type Tab = "work" | "schedule" | "profile" | "manage";
 
 export function Home(props: { me: Me; onReload: () => void }) {
   return (
@@ -31,6 +33,7 @@ function HomeInner({ me, onReload }: { me: Me; onReload: () => void }) {
   const sections = manageSections(me);
   const tabs: { id: Tab; title: string }[] = [];
   tabs.push({ id: "work", title: "Работа" });
+  tabs.push({ id: "schedule", title: "График" });
   tabs.push({ id: "profile", title: "Профиль" });
   if (sections.length) tabs.push({ id: "manage", title: "Управление" });
 
@@ -60,6 +63,7 @@ function HomeInner({ me, onReload }: { me: Me; onReload: () => void }) {
       ) : (
         <>
           {tab === "work" && <Work me={me} />}
+          {tab === "schedule" && <Schedule me={me} />}
           {tab === "profile" && <Profile me={me} onReload={onReload} />}
           {tab === "manage" && <Manage me={me} />}
         </>
@@ -100,6 +104,16 @@ function ScreenView({ me, screen }: { me: Me; screen: Screen }) {
           return <Moderation me={me} />;
         case "manual":
           return <ManualReview />;
+        case "shiftRequests":
+          return <ShiftRequests />;
+        case "daySummary":
+          return <DaySummary me={me} />;
+        case "distribution":
+          return <Distribution me={me} />;
+        case "points":
+          return <Points />;
+        case "settings":
+          return <SettingsScreen />;
       }
   }
   return null;

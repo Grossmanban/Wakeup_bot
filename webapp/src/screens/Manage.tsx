@@ -21,7 +21,14 @@ export function manageSections(me: Me): Section[] {
   if (can("tasks.manage")) s.push({ id: "tasks", title: "Задания", hint: "Пул, статусы, история" });
   if (can("moderation.review")) s.push({ id: "moderation", title: "Модерация", hint: "Допуск к оплате" });
   if (can("ocr.manual_review")) s.push({ id: "manual", title: "Ручная проверка", hint: "Фото и ошибки" });
+  if (can("schedule.manage")) s.push({ id: "shiftRequests", title: "Смены на подтверждение", hint: "Заявки на сегодня" });
+  if (can("schedule.view") || can("schedule.manage")) {
+    s.push({ id: "daySummary", title: "Сводка по дням", hint: "Кто работает, план и факт" });
+    s.push({ id: "distribution", title: "Распред", hint: "Расстановка по точкам" });
+  }
+  if (me.is_owner) s.push({ id: "points", title: "Рабочие точки", hint: "Адреса и вместимость" });
   if (can("org.manage")) s.push({ id: "networks", title: "Сети", hint: "Оргструктура" });
+  if (me.is_owner) s.push({ id: "settings", title: "Настройки", hint: "Параметры системы" });
   return s;
 }
 

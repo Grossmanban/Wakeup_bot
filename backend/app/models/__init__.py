@@ -25,6 +25,14 @@ from app.models.products import (
     SystemSetting,
     TaskType,
 )
+from app.models.schedule import (
+    ACTIVE_SHIFT,
+    DayOff,
+    Shift,
+    ShiftPlan,
+    ShiftStatus,
+    WorkPoint,
+)
 from app.models.tasks import (
     DONE_STATUSES,
     ImportBatch,
@@ -46,6 +54,12 @@ from app.models.users import (
 )
 
 __all__ = [
+    "ACTIVE_SHIFT",
+    "DayOff",
+    "Shift",
+    "ShiftPlan",
+    "ShiftStatus",
+    "WorkPoint",
     "BonusRule",
     "EntryKind",
     "LazyConsumption",

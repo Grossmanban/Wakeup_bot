@@ -2,7 +2,17 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.routes import execution, me, org, products, requests, tasks, users
+from app.api.routes import (
+    execution,
+    me,
+    org,
+    products,
+    requests,
+    schedule,
+    settings,
+    tasks,
+    users,
+)
 from app.config import get_settings
 from app.errors import AppError
 
@@ -37,6 +47,8 @@ def create_app() -> FastAPI:
         products.router,
         tasks.router,
         execution.router,
+        schedule.router,
+        settings.router,
     ):
         app.include_router(r, prefix="/api")
     return app
