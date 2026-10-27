@@ -66,6 +66,91 @@ others_with() { # others_with KEY VALUE
   return 0
 }
 
+EDGE_NET=wakeup_edge
+OUR_OVERRIDE="$ROOT/docker-compose.override.yml"
+MARK="# wakeup-proxy"
+N_FILES=(docker-compose.override.yml Caddyfile.wakeup)
+
+# Caddy другого приложения, который держит порт 443: контейнер, папка compose-проекта,
+# сервис и путь к его Caddyfile. Нужно для режима proxy.
+find_neighbor_caddy() {
+  N_NAME="$(docker ps --format '{{.Names}}|{{.Image}}|{{.Ports}}' 2>/dev/null |
+    awk -F'|' '$3 ~ /:443->/ && $2 ~ /caddy/ {print $1; exit}')"
+  [ -n "$N_NAME" ] || return 1
+  label() { docker inspect -f "{{index .Config.Labels \"$1\"}}" "$N_NAME" 2>/dev/null; }
+  mount() {
+    docker inspect -f "{{range .Mounts}}{{if eq .Destination \"$1\"}}{{.Source}}{{end}}{{end}}" \
+      "$N_NAME" 2>/dev/null
+  }
+  [ "$(label com.docker.compose.project)" != "$PROJECT" ] || return 1
+  N_DIR="$(label com.docker.compose.project.working_dir)"
+  N_SVC="$(label com.docker.compose.service)"
+  N_CADDYFILE="$(mount /etc/caddy/Caddyfile)"
+  # Уже подключали раньше: основной Caddyfile соседа смонтирован как Caddyfile.main.
+  [ "$N_CADDYFILE" = "$N_DIR/Caddyfile.wakeup" ] && N_CADDYFILE="$(mount /etc/caddy/Caddyfile.main)"
+  [ -n "$N_DIR" ] && [ -d "$N_DIR" ] && [ "$N_DIR" != / ] && [ -n "$N_SVC" ] &&
+    [ -f "$N_CADDYFILE" ] || return 1
+  # Чужой override не перезаписываем.
+  if [ -f "$N_DIR/docker-compose.override.yml" ] &&
+    ! grep -q "^$MARK" "$N_DIR/docker-compose.override.yml"; then
+    warn "в $N_DIR уже есть свой docker-compose.override.yml — подключаться к нему не буду"
+    return 1
+  fi
+  return 0
+}
+
+# Записать файлы подключения у соседа и проверить его конфигурацию Caddy. При ошибке всё
+# возвращается как было.
+neighbor_prepare() {
+  docker network inspect "$EDGE_NET" >/dev/null 2>&1 || docker network create "$EDGE_NET" >/dev/null
+  local f
+  for f in "${N_FILES[@]}"; do
+    [ -f "${N_DIR:?}/$f" ] && cp "${N_DIR:?}/$f" "${N_DIR:?}/$f.wakeup-bak"
+  done
+  cat >"${N_DIR:?}/Caddyfile.wakeup" <<EOF
+# Сгенерировано $ROOT/deploy/install.sh. Основной Caddyfile этого приложения подключён
+# ниже без изменений; добавлен только сайт Wakeup.
+import /etc/caddy/Caddyfile.main
+
+$DOMAIN {
+	encode gzip
+	reverse_proxy wakeup-web:80
+}
+EOF
+  cat >"${N_DIR:?}/docker-compose.override.yml" <<EOF
+$MARK — сгенерировано $ROOT/deploy/install.sh: подключает сайт Wakeup ($DOMAIN)
+# к этому Caddy. Отключить: удалить этот файл и Caddyfile.wakeup, затем
+#   docker compose up -d $N_SVC
+services:
+  $N_SVC:
+    volumes:
+      - $N_CADDYFILE:/etc/caddy/Caddyfile.main:ro
+      - ./Caddyfile.wakeup:/etc/caddy/Caddyfile:ro
+    networks:
+      - default
+      - $EDGE_NET
+networks:
+  $EDGE_NET:
+    external: true
+EOF
+  local out ok_validate=""
+  out="$(cd "${N_DIR:?}" && docker compose run --rm --no-deps -T --entrypoint caddy "$N_SVC" \
+    validate --config /etc/caddy/Caddyfile --adapter caddyfile 2>&1)" && ok_validate=1
+  for f in "${N_FILES[@]}"; do
+    if [ -n "$ok_validate" ]; then
+      rm -f "${N_DIR:?}/$f.wakeup-bak"
+    elif [ -f "${N_DIR:?}/$f.wakeup-bak" ]; then
+      mv "${N_DIR:?}/$f.wakeup-bak" "${N_DIR:?}/$f"
+    else
+      rm -f "${N_DIR:?}/$f"
+    fi
+  done
+  [ -n "$ok_validate" ] && return 0
+  warn "проверка конфигурации Caddy соседа не прошла — вернул как было"
+  printf '%s\n' "$out" | grep -iE 'error|err' | tail -3 | sed 's/^/    /'
+  return 1
+}
+
 [ "$(id -u)" -eq 0 ] || die "запустите через sudo: sudo bash $0"
 [ -f "$ROOT/docker-compose.yml" ] || die "не найден docker-compose.yml рядом со скриптом"
 cd "$ROOT"
@@ -168,6 +253,7 @@ fi
 bold "4/7 Порты"
 BUSY80="$(port_owner 80)"
 BUSY443="$(port_owner 443)"
+CADDY_MODE=""
 if [ -z "$BUSY80" ] && [ -z "$BUSY443" ]; then
   CADDY_MODE=standard
   HTTP_PUBLISH=80
@@ -175,12 +261,30 @@ if [ -z "$BUSY80" ] && [ -z "$BUSY443" ]; then
   BASE_URL="https://$DOMAIN"
   ok "порты 80 и 443 свободны — Wakeup откроется на https://$DOMAIN/"
 else
+  warn "порты 80/443 заняты: ${BUSY80:-—} / ${BUSY443:-—}"
+  if find_neighbor_caddy; then
+    echo "  На 443 работает Caddy приложения из $N_DIR. Wakeup можно подключить к нему:"
+    echo "  адрес будет https://$DOMAIN/ без порта, сертификат выпустит этот Caddy."
+    echo "  В $N_DIR добавятся два файла (docker-compose.override.yml и Caddyfile.wakeup),"
+    echo "  его Caddy перезапустится на несколько секунд. Файлы самого приложения не меняются."
+    DEF=y
+    [ "$(current CADDY_MODE)" = duckdns ] && DEF=n
+    ask USE_PROXY "Подключить? y — да (рекомендуется), n — отдельный порт" "$DEF"
+    if [[ "$USE_PROXY" =~ ^[YyДд] ]] && neighbor_prepare; then
+      CADDY_MODE=proxy
+      HTTP_PUBLISH="127.0.0.1:18080"
+      HTTPS_PUBLISH="127.0.0.1:18443"
+      BASE_URL="https://$DOMAIN"
+      ok "конфигурация проверена — Wakeup откроется на https://$DOMAIN/"
+    fi
+  fi
+fi
+if [ -z "$CADDY_MODE" ]; then
   CADDY_MODE=duckdns
-  warn "порты 80/443 заняты: ${BUSY80:-—} / ${BUSY443:-—}. Их не трогаю."
   [[ "$DOMAIN" == *.duckdns.org ]] ||
     die "при занятых 80/443 сертификат выпускается через DuckDNS — нужен домен *.duckdns.org"
   CUR_PORT="$(current HTTPS_PUBLISH)"
-  [ -n "$CUR_PORT" ] && [ "$CUR_PORT" != 443 ] || CUR_PORT=8443
+  [[ "$CUR_PORT" =~ ^[0-9]+$ ]] && [ "$CUR_PORT" != 443 ] || CUR_PORT=8443
   while :; do
     ask HTTPS_PUBLISH "Порт для Wakeup" "$CUR_PORT"
     if ! [[ "$HTTPS_PUBLISH" =~ ^[0-9]+$ ]] || [ "$HTTPS_PUBLISH" -lt 1024 ] || [ "$HTTPS_PUBLISH" -gt 65535 ]; then
@@ -195,6 +299,25 @@ else
   HTTP_PUBLISH="127.0.0.1:18080"
   BASE_URL="https://$DOMAIN:$HTTPS_PUBLISH"
   ok "Wakeup откроется на $BASE_URL/"
+  warn "некоторые мобильные операторы и фаерволы закрывают нестандартные порты"
+fi
+
+if [ "$CADDY_MODE" = proxy ]; then
+  cat >"$OUR_OVERRIDE" <<EOF
+$MARK — сгенерировано deploy/install.sh: сайт Wakeup доступен Caddy соседнего
+# приложения ($N_DIR) по общей сети $EDGE_NET под именем wakeup-web.
+services:
+  web:
+    networks:
+      default: {}
+      $EDGE_NET:
+        aliases: [wakeup-web]
+networks:
+  $EDGE_NET:
+    external: true
+EOF
+elif [ -f "$OUR_OVERRIDE" ] && grep -q "^$MARK" "$OUR_OVERRIDE"; then
+  rm -f "${OUR_OVERRIDE:?}"
 fi
 
 DUCKDNS_TOKEN="$(current DUCKDNS_TOKEN)"
@@ -262,7 +385,7 @@ EOF
 ok ".env сохранён (доступ только у root)"
 
 if command -v ufw >/dev/null 2>&1 && ufw status | grep -q "Status: active"; then
-  if [ "$CADDY_MODE" = standard ]; then
+  if [ "$CADDY_MODE" != duckdns ]; then
     ufw allow 80/tcp >/dev/null && ufw allow 443/tcp >/dev/null && ok "в ufw открыты порты 80 и 443"
   else
     ufw allow "$HTTPS_PUBLISH/tcp" >/dev/null && ok "в ufw открыт порт $HTTPS_PUBLISH"
@@ -286,6 +409,15 @@ ok "резервная копия каждый день в 03:15 → $ROOT/backu
 bold "7/7 Запуск (первая сборка — 5–15 минут)"
 # Затрагивает только проект wakeup: контейнеры других приложений не перезапускаются.
 docker compose -p "$PROJECT" up -d --build --remove-orphans
+
+if [ "$CADDY_MODE" = proxy ]; then
+  echo "  Подключаю Wakeup к Caddy в $N_DIR (перезапуск на несколько секунд)…"
+  if (cd "${N_DIR:?}" && docker compose up -d --no-deps "$N_SVC") >/dev/null 2>&1; then
+    ok "Caddy соседа обслуживает https://$DOMAIN/"
+  else
+    warn "не удалось перезапустить Caddy в $N_DIR: cd $N_DIR && docker compose up -d $N_SVC"
+  fi
+fi
 
 echo "  Жду запуска API…"
 API_OK=""
@@ -317,16 +449,17 @@ for _ in $(seq 1 30); do
   sleep 6
 done
 if [ -z "$WEB_OK" ]; then
-  warn "$BASE_URL/ пока не отвечает. Сертификат через DuckDNS может выпускаться до 5 минут."
-  warn "Журнал: docker compose -p $PROJECT logs --tail=50 web"
+  warn "$BASE_URL/ пока не отвечает. Сертификат может выпускаться до 5 минут."
+  warn "Проверка: sudo bash $ROOT/deploy/doctor.sh"
 fi
 
 bold "Готово"
 cat <<EOF
   Mini App: $BASE_URL/
-  Бот работает в скрытом режиме: посторонним он не отвечает. В @BotFather → Bot Settings →
-  Configure Mini App главное мини-приложение лучше выключить — иначе кнопка «Открыть» видна
-  в профиле бота всем (внутри посторонний всё равно увидит только «Доступ по приглашению»).
+  Кнопка «Открыть» в списке чатов — главное мини-приложение из @BotFather: Bot Settings →
+  Configure Mini App → укажите адрес $BASE_URL/ (именно его, иначе кнопка не откроется).
+  Бот работает в скрытом режиме: посторонний по этой кнопке увидит только «Доступ по
+  приглашению»; чтобы кнопки не было вовсе, главное мини-приложение можно выключить.
   Откройте @$BOT_USERNAME в Telegram, нажмите /start → «Открыть приложение».
   Владелец входит без заявки и один раз указывает ФИО.
 

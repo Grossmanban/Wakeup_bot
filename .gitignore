@@ -9,3 +9,5 @@ dist/
 media/
 backups/
 *.tsbuildinfo
+# Создаёт deploy/install.sh в режиме proxy
+docker-compose.override.yml

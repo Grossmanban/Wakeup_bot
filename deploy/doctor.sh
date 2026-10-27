@@ -10,6 +10,8 @@ DOMAIN="$(env_get DOMAIN)"
 PORT="$(env_get HTTPS_PUBLISH)"
 PORT="${PORT:-443}"
 MODE="$(env_get CADDY_MODE)"
+# В режиме proxy снаружи сайт на 443 у Caddy соседнего приложения.
+[ "$MODE" = proxy ] && PORT=443
 URL="https://$DOMAIN$([ "$PORT" = 443 ] || echo ":$PORT")"
 line() { printf '\n== %s\n' "$*"; }
 
@@ -36,6 +38,19 @@ curl -sS -m 10 -o /dev/null -w '%{http_code}\n' "$URL/api/health" 2>&1 | tail -1
 printf 'страница: '
 curl -sS -m 10 --resolve "$DOMAIN:$PORT:127.0.0.1" "$URL/" 2>/dev/null | grep -o '<script[^>]*src="[^"]*"' | head -2 | tr '\n' ' '
 echo
+
+if [ "$MODE" = proxy ]; then
+  line "Caddy соседа (режим proxy)"
+  N="$(docker ps --format '{{.Names}}|{{.Image}}|{{.Ports}}' | awk -F'|' '$3 ~ /:443->/ && $2 ~ /caddy/ {print $1; exit}')"
+  echo "контейнер: ${N:-не найден}"
+  if [ -n "$N" ]; then
+    printf 'видит Wakeup: '
+    docker exec "$N" wget -qO- -T 5 http://wakeup-web/api/health 2>&1 | head -c 80
+    echo
+    docker logs --tail=200 "$N" 2>&1 | grep -iE "$DOMAIN|wakeup" | grep -iE 'error|fail' |
+      sed -E 's/.*"msg":"([^"]*)".*/\1/' | tail -4
+  fi
+fi
 
 line "Ошибки web (Caddy)"
 docker compose logs --no-color --tail=300 web 2>&1 | grep -iE 'error|fail|obtain|certificate|acme|duckdns|challenge' |

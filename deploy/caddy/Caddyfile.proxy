@@ -1,0 +1,13 @@
+# Режим «за чужим Caddy»: порты 80/443 занимает Caddy другого приложения на сервере, он
+# выпускает сертификат и передаёт запросы сюда по общей Docker-сети wakeup_edge.
+# Здесь — только HTTP внутри сети.
+{
+	auto_https off
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+:80 {
+	import site.caddy
+}

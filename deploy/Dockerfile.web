@@ -1,6 +1,6 @@
 # Сборка Mini App и раздача через Caddy (HTTPS-сертификат выпускается автоматически).
-# CADDY_MODE=standard — обычный Caddy; duckdns — Caddy с DNS-проверкой DuckDNS
-# (для сервера, где порты 80/443 уже заняты другим сервисом).
+# CADDY_MODE: standard — обычный Caddy на 80/443; duckdns — отдельный порт, сертификат через
+# DNS-проверку DuckDNS; proxy — за Caddy другого приложения, который уже занимает 80/443.
 ARG CADDY_MODE=standard
 
 FROM node:22-alpine AS build
@@ -20,6 +20,9 @@ RUN xcaddy build --with github.com/caddy-dns/duckdns@v0.5.0
 FROM caddy:2.10.2-alpine AS caddy-duckdns
 COPY --from=caddy-builder /usr/bin/caddy /usr/bin/caddy
 COPY deploy/caddy/Caddyfile.duckdns /etc/caddy/Caddyfile
+
+FROM caddy:2.10.2-alpine AS caddy-proxy
+COPY deploy/caddy/Caddyfile.proxy /etc/caddy/Caddyfile
 
 FROM caddy-${CADDY_MODE}
 COPY deploy/caddy/site.caddy /etc/caddy/site.caddy
