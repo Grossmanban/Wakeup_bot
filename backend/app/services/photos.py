@@ -61,11 +61,17 @@ async def upload(
         product_id=product.id,
         kind=kind,
         stage=stage,
+        attempt=task.attempt,
         path=rel,
         content_type=ctype,
         size_bytes=len(data),
         sha256=digest,
     )
+    if kind == PhotoKind.FINAL and product.ocr_enabled:
+        # Попытка резервируется сразу, под блокировкой задания: параллельные загрузки не
+        # получат больше попыток, чем задано. Техническая ошибка OCR попытку вернёт.
+        task.ocr_attempts_used += 1
+        photo.ocr_attempt = task.ocr_attempts_used
     session.add(photo)
     await session.flush()
     add_event(
@@ -125,9 +131,13 @@ async def _check_ocr(session: AsyncSession, actor: Actor, task_id: int, photo_id
     photo.ocr_status = status
     photo.ocr_text = text
     photo.ocr_detail = detail
-    if status != OcrStatus.ERROR:
-        task.ocr_attempts_used += 1
-        photo.ocr_attempt = task.ocr_attempts_used
+    if task.attempt != photo.attempt or task.assignee_id != photo.user_id:
+        # Пока шла проверка, задание вернули в пул или на исправление: попытки уже обнулены.
+        await session.commit()
+        return
+    if status == OcrStatus.ERROR:
+        task.ocr_attempts_used = max(0, task.ocr_attempts_used - 1)
+        photo.ocr_attempt = None
     add_event(
         session,
         task,
@@ -178,8 +188,13 @@ async def photo_for_viewer(session: AsyncSession, actor: Actor, photo_id: int) -
     raise NotFound("Фото не найдено")
 
 
-async def task_photos(session: AsyncSession, task_id: int) -> list[TaskPhoto]:
-    rows = await session.execute(
-        select(TaskPhoto).where(TaskPhoto.task_id == task_id).order_by(TaskPhoto.id)
-    )
+async def task_photos(
+    session: AsyncSession, task: Task, *, current_only: bool = True
+) -> list[TaskPhoto]:
+    """Фото задания. По умолчанию — только текущей попытки текущего исполнителя;
+    вся история — для руководителей."""
+    q = select(TaskPhoto).where(TaskPhoto.task_id == task.id)
+    if current_only:
+        q = q.where(TaskPhoto.user_id == task.assignee_id, TaskPhoto.attempt == task.attempt)
+    rows = await session.execute(q.order_by(TaskPhoto.id))
     return list(rows.scalars())

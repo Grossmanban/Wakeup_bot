@@ -5,10 +5,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.api.deps import ActorDep, SessionDep
-from app.errors import NotFound
+from app.errors import Forbidden, NotFound
 from app.models import GroupInvite, TgGroup
 from app.permissions import Perm
 from app.services import groups as svc
+from app.services.access import get_target
 
 router = APIRouter(tags=["groups"])
 
@@ -90,4 +91,8 @@ async def get_invite(invite_id: int, session: SessionDep, actor: ActorDep):
     inv = await session.get(GroupInvite, invite_id)
     if inv is None:
         raise NotFound("Приглашение не найдено")
+    try:
+        await get_target(session, actor, Perm.GROUPS_INVITE, inv.user_id)
+    except Forbidden:
+        raise NotFound("Приглашение не найдено") from None
     return svc.invite_out(inv)

@@ -169,9 +169,8 @@ async def save_draft(
         b = Broadcast(author_id=actor.id)
         session.add(b)
     else:
-        b = await session.get(Broadcast, bid, with_for_update=True)
-        if b is None:
-            raise NotFound("Рассылка не найдена")
+        await _own(session, actor, bid)
+        b = await session.get(Broadcast, bid, with_for_update=True, populate_existing=True)
         if b.status != "draft":
             raise Conflict("sent", "Рассылка уже отправлена")
     b.text = _check_text(data["text"], bool(b.photo_path))
@@ -185,9 +184,9 @@ async def save_draft(
 async def set_photo(
     session: AsyncSession, actor: Actor, bid: int, content: bytes | None
 ) -> Broadcast:
-    actor.require(Perm.BROADCASTS_SEND)
-    b = await session.get(Broadcast, bid, with_for_update=True)
-    if b is None or b.status != "draft":
+    await _own(session, actor, bid)
+    b = await session.get(Broadcast, bid, with_for_update=True, populate_existing=True)
+    if b.status != "draft":
         raise NotFound("Черновик не найден")
     if content is None:
         b.photo_path = None

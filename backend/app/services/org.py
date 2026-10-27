@@ -94,7 +94,9 @@ def _manageable_networks(actor: Actor) -> set[int] | None:
 async def set_user_networks(
     session: AsyncSession, actor: Actor, user_id: int, network_ids: set[int]
 ) -> set[int]:
-    actor.require(Perm.ORG_MANAGE)
+    # Область по команде и сетям: админ с ограничением по сети не может «присвоить»
+    # человека без сети, тренер — человека не из своей команды.
+    await get_target(session, actor, Perm.ORG_MANAGE, user_id)
     allowed = _manageable_networks(actor)
     user = await session.get(User, user_id, with_for_update=True)
     if user is None or user.status in (AccountStatus.UNREGISTERED, AccountStatus.PENDING):
@@ -116,7 +118,7 @@ async def set_user_networks(
     added, removed = network_ids - current, current - network_ids
     if allowed is not None:
         # Админ с ограничением по сети меняет только свои сети и только у людей из них.
-        if not current & allowed and current:
+        if not current & allowed:
             raise NotFound("Сотрудник не найден")
         if (added | removed) - allowed:
             raise Forbidden("no_permission", "Нет прав на одну из выбранных сетей")

@@ -26,6 +26,7 @@ class PhotoOut(BaseModel):
     ocr_text: str | None
     ocr_detail: str | None
     ocr_attempt: int | None
+    attempt: int
 
 
 def photo_out(p: TaskPhoto) -> PhotoOut:
@@ -38,12 +39,13 @@ def photo_out(p: TaskPhoto) -> PhotoOut:
         ocr_text=p.ocr_text,
         ocr_detail=p.ocr_detail,
         ocr_attempt=p.ocr_attempt,
+        attempt=p.attempt,
     )
 
 
 async def _my_task_view(session, task: Task) -> dict:
     product = await session.get(Product, task.product_id)
-    pics = await photos.task_photos(session, task.id)
+    pics = await photos.task_photos(session, task)
     return {
         "task": TaskOut.model_validate(task),
         "product": {
@@ -173,7 +175,15 @@ async def _review_list(
     if task_ids:
         for p in (
             await session.execute(
-                select(TaskPhoto).where(TaskPhoto.task_id.in_(task_ids)).order_by(TaskPhoto.id)
+                # На проверку — только фото текущей попытки исполнителя.
+                select(TaskPhoto)
+                .join(Task, Task.id == TaskPhoto.task_id)
+                .where(
+                    TaskPhoto.task_id.in_(task_ids),
+                    TaskPhoto.attempt == Task.attempt,
+                    TaskPhoto.user_id == Task.assignee_id,
+                )
+                .order_by(TaskPhoto.id)
             )
         ).scalars():
             pics.setdefault(p.task_id, []).append(photo_out(p))
@@ -258,13 +268,15 @@ async def task_photos(task_id: int, session: SessionDep, actor: ActorDep):
     task = await session.get(Task, task_id)
     if task is None:
         raise NotFound("Задание не найдено")
-    allowed = actor.is_owner or task.assignee_id == actor.id
+    manager = actor.is_owner
     for perm in (Perm.MODERATION_REVIEW, Perm.OCR_MANUAL_REVIEW, Perm.TASKS_MANAGE):
-        if allowed:
+        if manager:
             break
-        if actor.has(perm) and task.assignee_id is not None:
+        if actor.has(perm) and task.assignee_id is not None and task.assignee_id != actor.id:
             scope = await scope_for(session, actor, perm)
-            allowed = scope is ALL or task.assignee_id in scope
-    if not allowed:
+            manager = scope is ALL or task.assignee_id in scope
+    if not manager and task.assignee_id != actor.id:
         raise NotFound("Задание не найдено")
-    return [photo_out(p) for p in await photos.task_photos(session, task.id)]
+    # Исполнитель видит только свои фото текущей попытки, руководитель — всю историю.
+    pics = await photos.task_photos(session, task, current_only=not manager)
+    return [photo_out(p) for p in pics]

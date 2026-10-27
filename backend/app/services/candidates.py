@@ -7,7 +7,7 @@ from html import escape
 from typing import Any
 
 import segno
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import timeutil
@@ -25,6 +25,8 @@ from app.models import (
     ProductAccess,
     ProductStatus,
     ReferralEvent,
+    RegistrationRequest,
+    RequestStatus,
     Task,
     TaskStatus,
     TelegramOutbox,
@@ -671,9 +673,26 @@ async def start_training(session: AsyncSession, actor: Actor, cid: int) -> User:
         raise Conflict("bad_state", "Начать обучение можно для одобренного кандидата")
     user = await session.get(User, c.user_id, with_for_update=True)
     old = {"status": user.status, "training_status": user.training_status}
-    user.first_name, user.last_name = c.first_name, c.last_name
     if user.status in (AccountStatus.UNREGISTERED, AccountStatus.REJECTED, AccountStatus.PENDING):
+        # ФИО из анкеты — только для ещё не зарегистрированного человека: подтверждённое
+        # ФИО меняется только через заявку на смену.
+        user.first_name, user.last_name = c.first_name, c.last_name
         user.status = AccountStatus.ACTIVE
+        # Открытая заявка на регистрацию больше не нужна: её отклонение потом не должно
+        # отключить действующего стажёра.
+        await session.execute(
+            update(RegistrationRequest)
+            .where(
+                RegistrationRequest.user_id == user.id,
+                RegistrationRequest.status == RequestStatus.PENDING,
+            )
+            .values(
+                status=RequestStatus.CANCELLED,
+                reason="Начато обучение по анкете кандидата",
+                decided_at=timeutil.now_utc(),
+                decided_by_id=actor.id,
+            )
+        )
     user.training_status = "training"
     user.training_started_at = timeutil.now_utc()
     if user.referred_by_id is None:
@@ -778,6 +797,8 @@ async def confirm_units(
 ) -> dict[str, Any]:
     """Администратор подтверждает весь объём или его часть; изменения сохраняются историей."""
     actor.require(Perm.TRAINING_MANAGE)
+    if user_id == actor.id and not actor.is_owner:
+        raise Forbidden("self_action", "Это действие нельзя выполнить над собой")
     user = await session.get(User, user_id, with_for_update=True)
     if user is None or user.training_status == "none":
         raise NotFound("Стажёр не найден")

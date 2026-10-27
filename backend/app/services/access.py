@@ -23,6 +23,21 @@ Scope = _All | frozenset[int]
 # Роли, видимость которых всегда ограничена собственной командой.
 TEAM_ROLES = (Role.COACH, Role.INSTRUCTOR)
 
+# Действия, которые нельзя выполнять над собой: иначе можно начислить себе бонус и выплату,
+# подтвердить своё ФИО или смену, переписать свои сети. Делает владелец или другой руководитель.
+NOT_ON_SELF = frozenset(
+    {
+        Perm.NAME_CHANGES_REVIEW,
+        Perm.USERS_STATUS,
+        Perm.ORG_MANAGE,
+        Perm.SCHEDULE_MANAGE,
+        Perm.FINANCE_MANAGE,
+        Perm.PAYOUTS_MANAGE,
+        Perm.TRAINING_MANAGE,
+        Perm.GROUPS_INVITE,
+    }
+)
+
 
 @dataclass
 class Actor:
@@ -51,6 +66,14 @@ class Actor:
 
     def has_global(self, perm: Perm) -> bool:
         return self.is_owner or None in self.grants.get(perm.value, set())
+
+    def require_company_wide(self, perm: Perm) -> None:
+        """Для настроек, действующих на всех: разрешение на все сети и роль без команды."""
+        if not self.has_global(perm) or self.user.role in TEAM_ROLES:
+            raise Forbidden(
+                "company_wide_only",
+                "Правило действует на всех сотрудников — нужно разрешение на все сети",
+            )
 
 
 async def load_actor(session: AsyncSession, user: User) -> Actor:
@@ -91,7 +114,11 @@ async def _network_members(session: AsyncSession, network_ids: set[int]) -> froz
 
 
 async def scope_for(session: AsyncSession, actor: Actor, perm: Perm) -> Scope:
-    """Над кем actor может выполнять действие perm. Сам человек в область не входит."""
+    """Над кем actor может выполнять действие perm.
+
+    Область может включать самого actor (он состоит в своей сети); запрет действий над собой —
+    в get_target и NOT_ON_SELF.
+    """
     if actor.is_owner:
         return ALL
 
@@ -128,6 +155,8 @@ async def get_target(session: AsyncSession, actor: Actor, perm: Perm, user_id: i
     scope = await scope_for(session, actor, perm)
     if scope == frozenset() and not actor.has(perm):
         raise Forbidden("no_permission", "Недостаточно прав для этого действия")
+    if perm in NOT_ON_SELF and user_id == actor.id and not actor.is_owner:
+        raise Forbidden("self_action", "Это действие нельзя выполнить над собой")
     if not in_scope(scope, user_id):
         raise NotFound("Сотрудник не найден")
     user = await session.get(User, user_id)

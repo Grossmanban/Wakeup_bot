@@ -118,7 +118,7 @@ async def on_ack(query: CallbackQuery) -> None:
     async with get_sessionmaker()() as session:
         user = await session.scalar(select(User).where(User.telegram_id == query.from_user.id))
         # Отключённый или заблокированный аккаунт не может выполнять рабочие действия (ТЗ 2.3).
-        active = user is not None and user.status == AccountStatus.ACTIVE
+        active = user is not None and user.status == AccountStatus.ACTIVE and user.app_access
         ok = active and await broadcasts_svc.acknowledge(session, user, bid)
     await query.answer(
         "Отмечено: вы ознакомились" if ok else "Не удалось отметить", show_alert=not ok
@@ -140,7 +140,7 @@ async def on_reply(message: Message) -> None:
     async with get_sessionmaker()() as session:
         user = await session.scalar(select(User).where(User.telegram_id == message.from_user.id))
         ok = (
-            user is not None and user.status == AccountStatus.ACTIVE
+            user is not None and user.status == AccountStatus.ACTIVE and user.app_access
         ) and await broadcasts_svc.save_reply(
             session,
             user,

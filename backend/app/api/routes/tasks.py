@@ -11,7 +11,7 @@ from app.api.schemas_products import (
     TaskListItem,
     TaskOut,
 )
-from app.errors import AppError, NotFound
+from app.errors import AppError, Conflict, NotFound
 from app.models import (
     ImportBatch,
     Product,
@@ -218,7 +218,11 @@ async def take_task(
 ):
     scope = f"take:{product_id}"
     if (saved := await idempotency.lookup(session, actor.id, idem_key, scope)) is not None:
-        return await session.get(Task, saved["task_id"])
+        task = await session.get(Task, saved["task_id"])
+        # Повтор запроса возвращает задание, только пока оно ещё за этим сотрудником.
+        if task is None or task.assignee_id != actor.id:
+            raise Conflict("task_gone", "Это задание уже не за вами — возьмите новое")
+        return task
     return await tasks_svc.take_task(session, actor, product_id, idem_key=idem_key)
 
 

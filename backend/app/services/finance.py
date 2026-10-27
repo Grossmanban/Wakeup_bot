@@ -391,7 +391,7 @@ def _validate_rule(data: dict[str, Any]) -> None:
 async def save_bonus_rule(
     session: AsyncSession, actor: Actor, rule_id: int | None, data: dict[str, Any]
 ) -> BonusRule:
-    actor.require(Perm.FINANCE_MANAGE)
+    actor.require_company_wide(Perm.FINANCE_MANAGE)
     _validate_rule(data)
     for c in data["conditions"]:
         await products_svc.get_product(session, c["product_id"])
@@ -504,7 +504,7 @@ async def evaluate_bonus_rules(
 async def save_lazy_rule(
     session: AsyncSession, actor: Actor, rule_id: int | None, data: dict[str, Any]
 ) -> LazyRule:
-    actor.require(Perm.FINANCE_MANAGE)
+    actor.require_company_wide(Perm.FINANCE_MANAGE)
     await products_svc.get_product(session, data["product_id"])
     if data["min_daily_units"] <= 0 or data["reduced_rate_kop"] < 0:
         raise AppError("bad_rule", "Минимум — больше нуля, ставка — не отрицательная")

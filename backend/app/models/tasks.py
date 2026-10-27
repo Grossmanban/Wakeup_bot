@@ -80,6 +80,9 @@ class Task(IdMixin, CreatedAtMixin, Base):
 
     # OCR и ручная проверка (ТЗ 7)
     ocr_attempts_used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Номер попытки выполнения: растёт при возврате в пул и на исправление. Учитываются
+    # только фото текущей попытки — чужие и старые фото не засчитываются.
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     manual_review_reason: Mapped[str | None] = mapped_column(Text)
 
     # Модерация (ТЗ 8)
@@ -145,6 +148,7 @@ class TaskPhoto(IdMixin, Base):
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), nullable=False)
     kind: Mapped[PhotoKind] = mapped_column(str_enum(PhotoKind, "photo_kind"), nullable=False)
     stage: Mapped[int | None] = mapped_column(Integer)
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     path: Mapped[str] = mapped_column(String(255), nullable=False)
     content_type: Mapped[str] = mapped_column(String(32), nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)

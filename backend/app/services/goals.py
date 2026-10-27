@@ -123,7 +123,11 @@ async def save_goal(
         new_people = True
     else:
         goal = await session.get(Goal, goal_id, with_for_update=True)
-        if goal is None or goal.status == GoalStatus.DELETED:
+        if (
+            goal is None
+            or goal.status == GoalStatus.DELETED
+            or not await _manages(session, actor, goal)
+        ):
             raise NotFound("Цель не найдена")
         old = {k: getattr(goal, k) for k in data}
         new_people = (
@@ -150,10 +154,18 @@ async def save_goal(
     return goal
 
 
+async def _manages(session: AsyncSession, actor: Actor, goal: Goal) -> bool:
+    """Руководитель управляет целью, только если все её участники в его области."""
+    if not actor.has(Perm.GOALS_MANAGE):
+        return False
+    scope = await scope_for(session, actor, Perm.GOALS_MANAGE)
+    return scope is ALL or (await participants(session, goal)) <= scope
+
+
 async def set_status(session: AsyncSession, actor: Actor, goal_id: int, status: GoalStatus) -> Goal:
     actor.require(Perm.GOALS_MANAGE)
     goal = await session.get(Goal, goal_id, with_for_update=True)
-    if goal is None:
+    if goal is None or not await _manages(session, actor, goal):
         raise NotFound("Цель не найдена")
     if goal.status != status:
         audit.record(
@@ -277,18 +289,20 @@ def goal_out(g: Goal) -> dict[str, Any]:
 
 
 async def visible_goals(session: AsyncSession, actor: Actor) -> list[dict[str, Any]]:
-    manager = actor.has(Perm.GOALS_MANAGE)
     q = (
         select(Goal)
         .where(Goal.status != GoalStatus.DELETED)
         .order_by(Goal.period_to.desc(), Goal.id.desc())
     )
-    if not manager:
+    if not actor.has(Perm.GOALS_MANAGE):
         q = q.where(Goal.status == GoalStatus.ACTIVE)
     out = []
     for g in (await session.execute(q)).scalars():
         ids = await participants(session, g)
         mine = actor.id in ids
+        manager = await _manages(session, actor, g)
+        if not manager and g.status != GoalStatus.ACTIVE:
+            continue
         if not manager and not (mine and g.visibility != "managers" or g.visibility == "all"):
             continue
         res = await results(session, g)
@@ -302,7 +316,7 @@ async def goal_details(session: AsyncSession, actor: Actor, goal_id: int) -> dic
     if g is None or g.status == GoalStatus.DELETED:
         raise NotFound("Цель не найдена")
     ids = await participants(session, g)
-    if not actor.has(Perm.GOALS_MANAGE):
+    if not await _manages(session, actor, g):
         if g.status != GoalStatus.ACTIVE or not (
             g.visibility == "all" or (actor.id in ids and g.visibility != "managers")
         ):

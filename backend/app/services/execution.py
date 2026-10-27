@@ -83,7 +83,12 @@ async def found(session: AsyncSession, actor: Actor, task_id: int) -> Task:
 
 
 async def _photos(session: AsyncSession, task: Task, kind: PhotoKind, stage: int | None):
-    q = select(TaskPhoto).where(TaskPhoto.task_id == task.id, TaskPhoto.kind == kind)
+    q = select(TaskPhoto).where(
+        TaskPhoto.task_id == task.id,
+        TaskPhoto.kind == kind,
+        TaskPhoto.user_id == task.assignee_id,
+        TaskPhoto.attempt == task.attempt,
+    )
     if stage is not None:
         q = q.where(TaskPhoto.stage == stage)
     return list((await session.execute(q.order_by(TaskPhoto.id))).scalars())

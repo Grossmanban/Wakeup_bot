@@ -10,7 +10,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import timeutil
-from app.errors import AppError, Conflict, NotFound
+from app.errors import AppError, Conflict, Forbidden, NotFound
 from app.models import (
     DONE_STATUSES,
     PURPOSES,
@@ -518,12 +518,18 @@ def invite_out(i: GroupInvite) -> dict[str, Any]:
     }
 
 
+OWNER_INVITE_PURPOSES = ("audit", "photoreports", "summary")
+
+
 async def invite(session: AsyncSession, actor: Actor, group_id: int, user_id: int) -> GroupInvite:
     """Пригласить в выбранную группу. Ошибка Telegram сохраняется и показывается как ошибка."""
     user = await get_target(session, actor, Perm.GROUPS_INVITE, user_id)
     g = await session.get(TgGroup, group_id)
     if g is None:
         raise NotFound("Группа не найдена")
+    if g.purpose in OWNER_INVITE_PURPOSES and not actor.is_owner:
+        # В архив аудита и группы фотоотчётов попадают данные всей компании.
+        raise Forbidden("owner_only", "В эту группу приглашает только владелец")
     if g.status != "connected":
         raise Conflict("group_unavailable", "Бот не состоит в этой группе — приглашение невозможно")
     if g.bot_rights and g.bot_rights.get("can_invite_users") is False:

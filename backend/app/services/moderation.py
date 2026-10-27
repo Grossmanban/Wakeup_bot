@@ -93,6 +93,7 @@ async def decide(
         # Сотрудник переделывает финальную часть: новое фото и новые попытки проверки.
         task.completed_at = None
         task.ocr_attempts_used = 0
+        task.attempt += 1
     ev = add_event(
         session, task, "moderation", actor.id, decision=decision, reason=reason, previous=old.value
     )
@@ -184,6 +185,7 @@ async def manual_return(
     task.status = TaskStatus.ACTIVE
     task.manual_review_reason = None
     task.ocr_attempts_used = 0  # новые попытки проверки
+    task.attempt += 1  # старое фото больше не засчитывается
     ev = add_event(session, task, "manual_returned", actor.id, reason=reason)
     audit.record(
         session,

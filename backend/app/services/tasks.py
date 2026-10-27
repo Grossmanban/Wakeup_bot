@@ -21,7 +21,7 @@ from app.models import (
 from app.permissions import Perm
 from app.services import audit, idempotency, outbox
 from app.services import products as products_svc
-from app.services.access import Actor, in_scope, scope_for
+from app.services.access import TEAM_ROLES, Actor, in_scope, scope_for
 from app.services.audit import Category
 from app.timeutil import now_utc
 
@@ -128,14 +128,36 @@ async def take_task(
 
 async def get_task_for_manager(session: AsyncSession, actor: Actor, task_id: int) -> Task:
     actor.require(Perm.TASKS_MANAGE)
-    task = await session.get(Task, task_id)
+    # Блокировка до проверки области: исполнитель не сменится между проверкой и действием.
+    task = await session.get(Task, task_id, with_for_update=True)
     if task is None:
         raise NotFound("Задание не найдено")
-    if task.assignee_id is not None and not actor.is_owner:
+    if actor.is_owner:
+        return task
+    if task.assignee_id is not None:
         scope = await scope_for(session, actor, Perm.TASKS_MANAGE)
         if not in_scope(scope, task.assignee_id):
             raise NotFound("Задание не найдено")
+    elif not await _manages_pool(session, actor, task.product_id):
+        raise NotFound("Задание не найдено")
     return task
+
+
+async def _manages_pool(session: AsyncSession, actor: Actor, product_id: int) -> bool:
+    """Задания в пуле ничьи: ими управляет право на все сети или на сеть продукта."""
+    if actor.user.role in TEAM_ROLES:
+        return False
+    if actor.has_global(Perm.TASKS_MANAGE):
+        return True
+    granted = {n for n in actor.grants.get(Perm.TASKS_MANAGE.value, set()) if n is not None}
+    networks = set(
+        (
+            await session.execute(
+                select(ProductNetwork.network_id).where(ProductNetwork.product_id == product_id)
+            )
+        ).scalars()
+    )
+    return bool(networks & granted)
 
 
 def reset_execution(task: Task) -> None:
@@ -148,6 +170,7 @@ def reset_execution(task: Task) -> None:
     task.completed_at = None
     task.ocr_attempts_used = 0
     task.manual_review_reason = None
+    task.attempt += 1
 
 
 async def return_to_pool(

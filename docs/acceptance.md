@@ -4,11 +4,11 @@
 
 | № | Требование | Тест |
 |---|---|---|
-| 1 | Пользователь не может подделать Telegram ID или обойти права | `test_init_data.py::test_tampered_user_id`, `::test_api_requires_signed_init_data`; `test_access.py`; `test_acceptance.py::test_permissions_are_enforced_on_every_module` |
+| 1 | Пользователь не может подделать Telegram ID или обойти права | `test_init_data.py::test_tampered_user_id`, `::test_api_requires_signed_init_data`; `test_access.py`; `test_acceptance.py::test_permissions_are_enforced_on_every_module`; `test_security.py` |
 | 2 | Один сотрудник не получает задание одновременно с другим | `test_products.py::test_two_employees_never_get_the_same_task` |
 | 3 | Повторные запросы не создают дубликаты | `test_products.py::test_idempotency_key_returns_same_task`, `::test_import_preview_errors_duplicates_and_commit`; `test_registration.py::test_concurrent_approve_only_one_wins`; `test_finance.py::test_payout_with_bonus_penalty_and_idempotency`; `test_broadcasts.py::test_audience_filters_and_send` |
 | 4 | Таймер нельзя обойти перезагрузкой или подменой клиентского времени | `test_execution.py::test_full_flow_with_stages_timer_and_photos` (время только серверное; повторное «Найдено» не сбрасывает таймер) |
-| 5 | Фото считается загруженным только после подтверждения сервера | `test_execution.py::test_full_flow_with_stages_timer_and_photos`, `::test_photo_validation_and_access` (без ответа сервера этап не проходит, файл проверяется по содержимому) |
+| 5 | Фото считается загруженным только после подтверждения сервера | `test_execution.py::test_full_flow_with_stages_timer_and_photos`, `::test_photo_validation_and_access` (без ответа сервера этап не проходит, файл проверяется по содержимому); `test_security.py::test_previous_assignee_photos_do_not_count`, `::test_return_for_fix_requires_new_photo` |
 | 6 | Завершённое задание переходит на модерацию | `test_execution.py::test_full_flow_with_stages_timer_and_photos`; `test_acceptance.py::test_end_to_end` |
 | 7 | Ожидающая модерации единица не считается одобренной или отклонённой | `test_execution.py::test_moderation_quality_and_earnings`; `test_stats.py::test_actual_paid_rate_pending_and_overlap` |
 | 8 | 10 ед./ч при качестве 50% → 5 оплачиваемых ед./ч | `test_stats.py::test_ten_per_hour_with_half_quality_gives_five` |
