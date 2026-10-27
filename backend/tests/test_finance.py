@@ -344,11 +344,11 @@ async def test_scheduled_lazy_close_runs_once(client):
     night = timeutil.msk_at(TODAY, datetime.min.time().replace(minute=15))
     first = await jobs.run_due(get_sessionmaker(), night)
     second = await jobs.run_due(get_sessionmaker(), night)
-    assert first == [f"lazy_close:{TODAY - timedelta(days=1)}"]
+    assert f"lazy_close:{TODAY - timedelta(days=1)}" in first
     assert second == []
     # До 00:10 закрытие дня не запускается.
-    early = timeutil.msk_at(TODAY + timedelta(days=1), datetime.min.time().replace(minute=5))
-    assert await jobs.run_due(get_sessionmaker(), early) == []
+    early = timeutil.msk_at(TODAY + timedelta(days=1), datetime.min.time().replace(minute=9))
+    assert not [r for r in await jobs.run_due(get_sessionmaker(), early) if r.startswith("lazy_close")]
 
 
 async def test_unpaid_list(client):

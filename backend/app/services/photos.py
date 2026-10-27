@@ -19,7 +19,7 @@ from app.models import (
     User,
 )
 from app.permissions import Perm
-from app.services import notify
+from app.services import notify, photoreports
 from app.services.access import Actor, in_scope, scope_for
 from app.services.execution import own_task, require_active, require_found
 from app.services.tasks import add_event
@@ -78,6 +78,13 @@ async def upload(
         photo_kind=kind.value,
     )
     await session.commit()
+    # Отправка в Telegram — отдельной транзакцией: сбой маршрутизации не влияет на сохранение фото.
+    try:
+        await photoreports.enqueue_photo(session, photo)
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        log.exception("photo report enqueue failed for photo %s", photo.id)
 
     if kind == PhotoKind.FINAL and product.ocr_enabled:
         await _check_ocr(session, actor, task.id, photo.id)

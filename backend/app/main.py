@@ -9,6 +9,7 @@ from app.api.routes import (
     me,
     org,
     people,
+    photoreports,
     products,
     requests,
     schedule,
@@ -57,6 +58,7 @@ def create_app() -> FastAPI:
         people.router,
         stats.router,
         groups.router,
+        photoreports.router,
     ):
         app.include_router(r, prefix="/api")
     return app

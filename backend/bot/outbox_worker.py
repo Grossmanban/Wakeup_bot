@@ -117,9 +117,11 @@ async def run_forever(
 
 
 def _register_hooks() -> None:
-    from app.services import groups
+    from app.services import groups, photoreports
 
     RESULT_HOOKS["invite"] = groups.on_invite_result
+    RESULT_HOOKS["photo_delivery"] = photoreports.on_delivery_result
+    RESULT_HOOKS["day_post"] = photoreports.on_post_result
 
 
 _register_hooks()

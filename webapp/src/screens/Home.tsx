@@ -8,6 +8,7 @@ import { BonusRules, LazyRules } from "./FinanceRules";
 import { GoalsAdmin } from "./Goals";
 import { GroupsSettings, Membership } from "./Groups";
 import { Import } from "./Import";
+import { PhotoReports } from "./PhotoReports";
 import { Manage, manageSections } from "./Manage";
 import { MyTask } from "./MyTask";
 import { Networks } from "./Networks";
@@ -136,6 +137,8 @@ function ScreenView({ me, screen }: { me: Me; screen: Screen }) {
           return <Membership me={me} />;
         case "groups":
           return <GroupsSettings />;
+        case "photoreports":
+          return <PhotoReports />;
         case "candidates":
           return <Candidates me={me} />;
         case "trainees":

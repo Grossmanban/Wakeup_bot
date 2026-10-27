@@ -15,7 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app import timeutil
 from app.models import JobRun
-from app.services import finance, groups
+from app.services import finance, groups, photoreports
+from app.services import settings as settings_svc
 
 log = logging.getLogger(__name__)
 
@@ -42,6 +43,11 @@ async def once(
         await session.commit()
     log.info("job %s %s done: %s", name, run_key, result)
     return True
+
+
+async def _setting(sessionmaker: async_sessionmaker[AsyncSession], key: str) -> Any:
+    async with sessionmaker() as session:
+        return await settings_svc.get(session, key)
 
 
 def _hm(value: str) -> time:
@@ -73,6 +79,22 @@ async def run_due(
     # Новички: пересчёт рабочих дней и даты перехода с записью изменений в аудит.
     if now.time() >= time(0, 20):
         await run("newbie_recalc", today.isoformat(), groups.recalc_all)
+
+    # Фотоотчёты: сначала итоги прошедшего дня, затем заголовок нового (ТЗ 17.3, 17.4).
+    summary_at = _hm(await _setting(sessionmaker, "daily_summary_time"))
+    if now.time() >= summary_at:
+        await run(
+            "photo_summary",
+            yesterday.isoformat(),
+            lambda s: photoreports.post_summaries(s, yesterday),
+        )
+        await run("photo_header", today.isoformat(), lambda s: photoreports.post_headers(s, today))
+        # Корректировки прошлых сводок — раз в час.
+        await run(
+            "photo_corrections",
+            now.strftime("%Y-%m-%dT%H"),
+            lambda s: photoreports.post_corrections(s, today),
+        )
 
     for hook in EXTRA_JOBS:
         await hook(sessionmaker, now, run)

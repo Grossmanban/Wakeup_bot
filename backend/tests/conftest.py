@@ -95,7 +95,11 @@ class FakeGateway:
         self.Error = TelegramError
         self.members: dict[tuple[int, int], str] = {}
         self.unknown: set[tuple[int, int]] = set()
-        self.rights = {"status": "administrator", "can_invite_users": True, "can_manage_topics": True}
+        self.rights = {
+            "status": "administrator",
+            "can_invite_users": True,
+            "can_manage_topics": True,
+        }
         self.sent: list[tuple[str, int, dict]] = []
         self.fail_send = None
         self.fail_link = None
