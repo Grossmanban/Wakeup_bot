@@ -22,6 +22,8 @@ services:
       MEDIA_DIR: /media
     volumes:
       - media:/media
+      # Модели PaddleOCR скачиваются при первом распознавании и сохраняются здесь.
+      - ocr_models:/root/.paddlex
     depends_on:
       db:
         condition: service_healthy
@@ -58,4 +60,5 @@ services:
 volumes:
   pgdata:
   media:
+  ocr_models:
   caddy_data:

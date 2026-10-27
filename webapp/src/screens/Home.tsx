@@ -1,84 +1,106 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Me } from "../api";
+import { FallbackBack, NavProvider, Screen, useNav } from "../nav";
 import { load, save } from "../storage";
-import { backButton } from "../telegram";
+import { Import } from "./Import";
+import { Manage, manageSections } from "./Manage";
+import { MyTask } from "./MyTask";
 import { Networks } from "./Networks";
+import { ProductEditor } from "./ProductEditor";
+import { Products } from "./Products";
 import { Profile } from "./Profile";
 import { Requests } from "./Requests";
+import { ManualReview, Moderation } from "./Review";
+import { TaskAdminCard, TasksAdmin } from "./TasksAdmin";
 import { UserCard } from "./UserCard";
 import { Users } from "./Users";
+import { Work } from "./Work";
 
-type Tab = "profile" | "requests" | "users" | "networks";
+type Tab = "work" | "profile" | "manage";
 
-export function Home({ me, onReload }: { me: Me; onReload: () => void }) {
-  const can = (p: string) => me.is_owner || me.permissions.includes(p);
-  const tabs: { id: Tab; title: string }[] = [{ id: "profile", title: "Профиль" }];
-  if (can("registrations.review") || can("name_changes.review")) tabs.push({ id: "requests", title: "Заявки" });
-  if (can("users.view") || me.user.role === "coach" || me.user.role === "instructor")
-    tabs.push({ id: "users", title: "Сотрудники" });
-  if (can("org.manage")) tabs.push({ id: "networks", title: "Сети" });
+export function Home(props: { me: Me; onReload: () => void }) {
+  return (
+    <NavProvider>
+      <HomeInner {...props} />
+    </NavProvider>
+  );
+}
+
+function HomeInner({ me, onReload }: { me: Me; onReload: () => void }) {
+  const nav = useNav();
+  const sections = manageSections(me);
+  const tabs: { id: Tab; title: string }[] = [];
+  tabs.push({ id: "work", title: "Работа" });
+  tabs.push({ id: "profile", title: "Профиль" });
+  if (sections.length) tabs.push({ id: "manage", title: "Управление" });
 
   const [tab, setTabState] = useState<Tab>(() => {
-    const saved = load<Tab>("tab", "profile");
-    return tabs.some((t) => t.id === saved) ? saved : "profile";
+    const saved = load<Tab>("tab", "work");
+    return tabs.some((t) => t.id === saved) ? saved : "work";
   });
   const setTab = (t: Tab) => {
     setTabState(t);
-    setStack([]);
+    nav.reset();
     save("tab", t);
   };
-  // Стек открытых карточек сотрудников — для кнопки «Назад» Telegram.
-  const [stack, setStack] = useState<number[]>([]);
-  const openUser = (id: number) => setStack((s) => [...s, id]);
-
-  useEffect(() => {
-    const bb = backButton();
-    if (!bb) return;
-    if (stack.length === 0) {
-      bb.hide();
-      return;
-    }
-    const onBack = () => setStack((s) => s.slice(0, -1));
-    bb.show();
-    bb.onClick(onBack);
-    return () => bb.offClick(onBack);
-  }, [stack.length]);
-
-  const current = stack[stack.length - 1];
+  const top = nav.stack[nav.stack.length - 1];
 
   return (
     <div>
-      {tabs.length > 1 && (
-        <div className="tabs">
-          {tabs.map((t) => (
-            <button key={t.id} className={tab === t.id && current === undefined ? "active" : ""} onClick={() => setTab(t.id)}>
-              {t.title}
-            </button>
-          ))}
-        </div>
-      )}
-      {current !== undefined ? (
-        <>
-          {!backButton() && (
-            <button onClick={() => setStack((s) => s.slice(0, -1))} style={{ marginBottom: 8 }}>
-              ← Назад
-            </button>
-          )}
-          <UserCard key={current} me={me} userId={current} onOpen={openUser} />
-        </>
+      <div className="tabs">
+        {tabs.map((t) => (
+          <button key={t.id} className={tab === t.id && !top ? "active" : ""} onClick={() => setTab(t.id)}>
+            {t.title}
+          </button>
+        ))}
+      </div>
+      <FallbackBack />
+      {top ? (
+        <ScreenView key={nav.stack.length} me={me} screen={top} />
       ) : (
         <>
-          {/* Списки скрываются, а не размонтируются, чтобы при возврате сохранялись фильтры и прокрутка. */}
+          {tab === "work" && <Work me={me} />}
           {tab === "profile" && <Profile me={me} onReload={onReload} />}
-          {tab === "requests" && <Requests me={me} />}
-          {tab === "networks" && <Networks />}
+          {tab === "manage" && <Manage me={me} />}
         </>
-      )}
-      {tab === "users" && (
-        <div style={{ display: current === undefined ? "block" : "none" }}>
-          <Users onOpen={openUser} />
-        </div>
       )}
     </div>
   );
+}
+
+function ScreenView({ me, screen }: { me: Me; screen: Screen }) {
+  const nav = useNav();
+  const openUser = (id: number) => nav.push({ type: "user", id });
+  switch (screen.type) {
+    case "user":
+      return <UserCard me={me} userId={screen.id} onOpen={openUser} />;
+    case "product":
+      return <ProductEditor me={me} id={screen.id} />;
+    case "task":
+      return <TaskAdminCard me={me} id={screen.id} />;
+    case "myTask":
+      return <MyTask me={me} id={screen.id} />;
+    case "custom":
+      return <>{screen.render()}</>;
+    case "section":
+      switch (screen.id) {
+        case "requests":
+          return <Requests me={me} />;
+        case "users":
+          return <Users onOpen={openUser} />;
+        case "products":
+          return <Products me={me} />;
+        case "import":
+          return <Import />;
+        case "tasks":
+          return <TasksAdmin />;
+        case "networks":
+          return <Networks />;
+        case "moderation":
+          return <Moderation me={me} />;
+        case "manual":
+          return <ManualReview />;
+      }
+  }
+  return null;
 }

@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import {
   AccountStatus,
   api,
+  parseRub,
+  ProductListItem,
+  rub,
   AuditEvent,
   formatMsk,
   Grant,
@@ -67,6 +70,7 @@ export function UserCard({ me, userId, onOpen }: { me: Me; userId: number; onOpe
       </div>
       {can("org.manage") && registered && <OrgEditor profile={data} onChanged={reload} />}
 
+      {me.is_owner && u.role !== "owner" && registered && <ProductsEditor userId={u.id} />}
       {me.is_owner && u.role !== "owner" && registered && <RoleEditor user={data} onChanged={reload} />}
       {can("users.status") && !isSelf && u.role !== "owner" && registered && (
         <StatusEditor userId={u.id} status={u.status} onChanged={reload} />
@@ -461,6 +465,111 @@ function History({ userId }: { userId: number }) {
           </div>
         </div>
       ))}
+    </>
+  );
+}
+
+interface UserProducts {
+  product_ids: number[];
+  gender: "m" | "f" | null;
+  rates: { product_id: number; amount_kop: number }[];
+}
+
+function ProductsEditor({ userId }: { userId: number }) {
+  const products = useLoad(() => api.get<ProductListItem[]>("/products"), []);
+  const data = useLoad(() => api.get<UserProducts>(`/users/${userId}/products`), [userId]);
+  const [sel, setSel] = useState<Set<number> | null>(null);
+  const [rateInput, setRateInput] = useState<Record<number, string>>({});
+  useEffect(() => {
+    if (data.data) setSel(new Set(data.data.product_ids));
+  }, [data.data]);
+  const action = useAction();
+  const [saved, setSaved] = useState(false);
+  if (!products.data || !data.data || !sel) return products.error || data.error ? <ErrorBox error={products.error ?? data.error} /> : null;
+  const rates = new Map(data.data.rates.map((r) => [r.product_id, r.amount_kop]));
+  const live = products.data.filter((p) => p.status === "active" || p.status === "hidden" || sel.has(p.id));
+
+  return (
+    <>
+      <h2>Продукты</h2>
+      <ErrorBox error={action.error} />
+      {live.length === 0 && <p className="muted small">Продуктов пока нет</p>}
+      {live.map((p) => (
+        <div key={p.id} className="card small">
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={sel.has(p.id)}
+              onChange={() => {
+                const s = new Set(sel);
+                if (s.has(p.id)) s.delete(p.id);
+                else s.add(p.id);
+                setSel(s);
+                setSaved(false);
+              }}
+            />
+            <span>
+              <b>{p.name}</b>
+              {rates.has(p.id) && <span className="muted"> · инд. ставка {rub(rates.get(p.id))}</span>}
+            </span>
+          </label>
+          <div className="row" style={{ flexWrap: "nowrap" }}>
+            <input
+              placeholder="Индивидуальная ставка, ₽"
+              inputMode="decimal"
+              value={rateInput[p.id] ?? ""}
+              onChange={(e) => setRateInput({ ...rateInput, [p.id]: e.target.value })}
+            />
+            <button
+              disabled={action.busy}
+              onClick={async () => {
+                const kop = parseRub(rateInput[p.id] ?? "");
+                if (Number.isNaN(kop)) {
+                  action.setError(new Error("Ставка: число рублей, например 50 или 12,5"));
+                  return;
+                }
+                if (kop === null && !(await confirmAction("Снять индивидуальную ставку?"))) return;
+                const r = await action.run(() => api.put(`/products/${p.id}/rates/users/${userId}`, { amount_kop: kop }));
+                if (r.ok) {
+                  setRateInput({ ...rateInput, [p.id]: "" });
+                  data.reload();
+                }
+              }}
+            >
+              {rateInput[p.id] ? "Задать" : "Снять"}
+            </button>
+          </div>
+        </div>
+      ))}
+      {saved && <div className="notice">Доступы сохранены</div>}
+      <div className="row" style={{ marginBottom: 10 }}>
+        <button
+          className="primary"
+          disabled={action.busy}
+          onClick={async () => {
+            const r = await action.run(() => api.put(`/users/${userId}/products`, { ids: [...sel] }));
+            if (r.ok) {
+              setSaved(true);
+              data.reload();
+            }
+          }}
+        >
+          Сохранить доступы
+        </button>
+        <select
+          style={{ width: "auto" }}
+          value={data.data.gender ?? ""}
+          onChange={async (e) => {
+            const gender = e.target.value || null;
+            const r = await action.run(() => api.put<UserProducts>(`/users/${userId}/gender`, { gender }));
+            if (r.ok) data.setData(r.value);
+          }}
+        >
+          <option value="">Пол не указан</option>
+          <option value="m">Мужской</option>
+          <option value="f">Женский</option>
+        </select>
+      </div>
     </>
   );
 }

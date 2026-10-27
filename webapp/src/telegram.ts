@@ -13,6 +13,7 @@ interface TgWebApp {
   ready(): void;
   expand(): void;
   showConfirm?(message: string, cb: (ok: boolean) => void): void;
+  openLink?(url: string): void;
   BackButton?: TgBackButton;
   HapticFeedback?: { notificationOccurred(t: "error" | "success" | "warning"): void };
   onEvent?(event: string, cb: () => void): void;
@@ -55,4 +56,9 @@ export function confirmAction(message: string): Promise<boolean> {
 
 export function backButton(): TgBackButton | undefined {
   return tg?.isVersionAtLeast?.("6.1") ? tg.BackButton : undefined;
+}
+
+export function openExternal(url: string) {
+  if (tg?.openLink && tg.isVersionAtLeast?.("6.1")) tg.openLink(url);
+  else window.open(url, "_blank", "noopener");
 }

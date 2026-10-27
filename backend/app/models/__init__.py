@@ -1,7 +1,40 @@
 from app.models.audit import AuditEvent
 from app.models.base import Base
+from app.models.finance import (
+    BonusRule,
+    EntryKind,
+    LazyConsumption,
+    LazyExemption,
+    LazyRule,
+    LazyUnits,
+    LedgerEntry,
+    Payout,
+    PayoutAllocation,
+    PayoutStatus,
+)
 from app.models.org import Network, Supervision, UserNetwork
 from app.models.outbox import OutboxStatus, TelegramOutbox
+from app.models.products import (
+    IdempotencyKey,
+    OcrRule,
+    Product,
+    ProductAccess,
+    ProductNetwork,
+    ProductRate,
+    ProductStatus,
+    SystemSetting,
+    TaskType,
+)
+from app.models.tasks import (
+    DONE_STATUSES,
+    ImportBatch,
+    OcrStatus,
+    PhotoKind,
+    Task,
+    TaskEvent,
+    TaskPhoto,
+    TaskStatus,
+)
 from app.models.users import (
     AccountStatus,
     NameChangeRequest,
@@ -13,6 +46,33 @@ from app.models.users import (
 )
 
 __all__ = [
+    "BonusRule",
+    "EntryKind",
+    "LazyConsumption",
+    "LazyExemption",
+    "LazyRule",
+    "LazyUnits",
+    "LedgerEntry",
+    "Payout",
+    "PayoutAllocation",
+    "PayoutStatus",
+    "DONE_STATUSES",
+    "IdempotencyKey",
+    "ImportBatch",
+    "OcrRule",
+    "Product",
+    "ProductAccess",
+    "ProductNetwork",
+    "ProductRate",
+    "ProductStatus",
+    "SystemSetting",
+    "OcrStatus",
+    "PhotoKind",
+    "Task",
+    "TaskPhoto",
+    "TaskEvent",
+    "TaskStatus",
+    "TaskType",
     "AccountStatus",
     "AuditEvent",
     "Base",

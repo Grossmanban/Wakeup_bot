@@ -64,6 +64,8 @@ class User(IdMixin, CreatedAtMixin, Base):
         default=AccountStatus.UNREGISTERED,
     )
     status_reason: Mapped[str | None] = mapped_column(Text)
+    # "m" / "f" / NULL — для заданий с ограничением по полу. Задаёт владелец.
+    gender: Mapped[str | None] = mapped_column(String(1))
     # Доступ к Mini App отделён от состояния аккаунта (ТЗ 2.3).
     app_access: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 

@@ -10,6 +10,7 @@ from app.api.schemas import (
     UserOut,
 )
 from app.models import AccountStatus, NameChangeRequest, RegistrationRequest, Role
+from app.services import products as products_svc
 from app.services import users as users_svc
 from app.services.access import load_actor
 
@@ -49,8 +50,9 @@ async def me(session: SessionDep, user: CurrentUser):
     )
     screen, message = _screen(user)
     actor = await load_actor(session, user)
-    # Продуктовые доступы появятся на этапе 3; до этого у сотрудников их нет.
-    has_products = user.role == Role.OWNER
+    has_products = user.role == Role.OWNER or bool(
+        await products_svc.user_product_ids(session, user.id)
+    )
     return MeOut(
         user=UserOut.model_validate(user),
         screen=screen,

@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     # Каталог для фотографий на диске.
     media_dir: str = "./media"
 
+    # Движок OCR: paddle — PaddleOCR; none — автоматическая проверка отключена,
+    # все фото с OCR уходят на ручную проверку.
+    ocr_engine: str = "paddle"
+
     @field_validator("owner_telegram_ids", "cors_origins", mode="before")
     @classmethod
     def _split_csv(cls, v):
