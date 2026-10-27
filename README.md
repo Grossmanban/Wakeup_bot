@@ -58,6 +58,17 @@ sudo bash /opt/wakeup/deploy/install.sh
 
 Обновление и смена настроек — та же команда: Enter оставляет прежние значения.
 
+### Владельцы и диагностика
+
+```sh
+sudo bash deploy/owners.sh                   # кто владелец сейчас
+sudo bash deploy/owners.sh add 123456789     # добавить владельца (Telegram ID: @userinfobot)
+sudo bash deploy/owners.sh remove 123456789  # убрать (станет администратором без разрешений)
+sudo bash deploy/doctor.sh                   # почему не открывается Mini App
+```
+
+Новый владелец получает права при первом открытии приложения.
+
 ### Рядом с другим приложением
 
 Скрипт не мешает другим приложениям на сервере (например, другому боту в `/opt/bot_sanya`):
