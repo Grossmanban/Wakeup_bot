@@ -10,13 +10,14 @@ RUN npm ci
 COPY webapp/ ./
 RUN npm run build
 
-FROM caddy:2.8-alpine AS caddy-standard
+FROM caddy:2.10.2-alpine AS caddy-standard
 COPY deploy/caddy/Caddyfile /etc/caddy/Caddyfile
 
-FROM caddy:2.8-builder-alpine AS caddy-builder
-RUN xcaddy build --with github.com/caddy-dns/duckdns
+# Модуль DuckDNS v0.5.0 требует Caddy 2.10 и Go 1.24 — версии должны совпадать.
+FROM caddy:2.10.2-builder-alpine AS caddy-builder
+RUN xcaddy build --with github.com/caddy-dns/duckdns@v0.5.0
 
-FROM caddy:2.8-alpine AS caddy-duckdns
+FROM caddy:2.10.2-alpine AS caddy-duckdns
 COPY --from=caddy-builder /usr/bin/caddy /usr/bin/caddy
 COPY deploy/caddy/Caddyfile.duckdns /etc/caddy/Caddyfile
 
