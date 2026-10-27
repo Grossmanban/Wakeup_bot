@@ -65,12 +65,15 @@ sudo bash /opt/wakeup/deploy/install.sh
 
 ```sh
 sudo bash deploy/owners.sh                   # кто владелец сейчас
-sudo bash deploy/owners.sh add 123456789     # добавить владельца (Telegram ID: @userinfobot)
+sudo bash deploy/owners.sh people            # последние, кто открывал бота: имя, @username, ID
+sudo bash deploy/owners.sh add @username     # добавить владельца по username…
+sudo bash deploy/owners.sh add 123456789     # …или по Telegram ID
 sudo bash deploy/owners.sh remove 123456789  # убрать (станет администратором без разрешений)
 sudo bash deploy/doctor.sh                   # почему не открывается Mini App
 ```
 
-Новый владелец получает права при первом открытии приложения.
+Роль выдаётся сразу (человеку достаточно закрыть и снова открыть приложение). Если человек
+ещё не открывал бота, роль появится при первом входе. Скрипт показывает, чей это ID.
 
 ### Рядом с другим приложением
 
