@@ -62,6 +62,8 @@ export function UserCard({ me, userId, onOpen }: { me: Me; userId: number; onOpe
         </div>
       )}
 
+      <UserSummary userId={u.id} />
+
       <h2>Оргструктура</h2>
       <div className="card stack">
         <div>
@@ -450,6 +452,39 @@ const ACTION_TITLES: Record<string, string> = {
   "supervision.added": "Добавлен в команду",
   "supervision.removed": "Убран из команды",
   "telegram.delivery_failed": "Сообщение не доставлено",
+  "product_access.changed": "Изменены доступы к продуктам",
+  "profile.gender_changed": "Изменён пол",
+  "rate.changed": "Изменена индивидуальная ставка",
+  "task.returned_to_pool": "Задание возвращено в пул",
+  "task.cancelled": "Задание отменено",
+  "moderation.approve": "Задание допущено к оплате",
+  "moderation.reject": "Задание отклонено",
+  "moderation.return": "Задание возвращено на исправление",
+  "manual_review.approved": "Ручная проверка: одобрено",
+  "manual_review.returned": "Ручная проверка: возвращено",
+  "shift.created": "Смена в графике",
+  "shift.updated": "Изменена смена",
+  "shift.plans_changed": "Изменён план смены",
+  "shift.cancelled": "Смена отменена",
+  "shift.confirmed": "Смена подтверждена",
+  "shift.rejected": "Смена отклонена",
+  "penalty.created": "Штраф",
+  "bonus.created": "Бонус",
+  "bonus.auto": "Автоматический бонус",
+  "bonus.cancelled": "Бонус отменён",
+  "adjustment.created": "Корректировка",
+  "offset.created": "Взаимозачёт",
+  "payout.confirmed": "Выплата",
+  "lazy_units.accrued": "Единицы по сниженной ставке",
+  "candidate.approve": "Анкета одобрена",
+  "candidate.reject": "Анкета отклонена",
+  "training.started": "Начато обучение",
+  "training.units_confirmed": "Подтверждены учебные единицы",
+  "newbie.transition": "Переход из новичков",
+  "newbie.recalculated": "Пересчёт рабочих дней",
+  "invite.created": "Приглашение в группу",
+  "invite.delivery": "Доставка приглашения",
+  "membership.event": "Изменение членства в группе",
 };
 
 function History({ userId }: { userId: number }) {
@@ -581,6 +616,73 @@ function ProductsEditor({ userId }: { userId: number }) {
           <option value="m">Мужской</option>
           <option value="f">Женский</option>
         </select>
+      </div>
+    </>
+  );
+}
+
+interface Summary {
+  tasks: { total: number; active: number; manual_review: number; moderation: number; approved: number; paid: number; rejected: number };
+  quality: { percent: number | null; reviewed_units: number; small_sample: boolean };
+  training_status: string;
+  training: { product: string; volume: number; actual_units: number; confirmed_units: number; state: string }[];
+  newbie: { label: string; is_regular: boolean; transition_date: string | null };
+  memberships: { group: string; purpose: string; status: string }[];
+  referrer: string | null;
+}
+
+const MS: Record<string, string> = { member: "состоит", not_member: "не состоит", unknown: "не удалось проверить" };
+
+function UserSummary({ userId }: { userId: number }) {
+  const d = useLoad(() => api.get<Summary>(`/users/${userId}/summary`), [userId]);
+  if (!d.data) return null;
+  const s = d.data;
+  return (
+    <>
+      <h2>Показатели</h2>
+      <div className="card kv small">
+        <span>Заданий всего</span>
+        <span>{s.tasks.total}</span>
+        <span>Активные / ручная проверка</span>
+        <span>
+          {s.tasks.active} / {s.tasks.manual_review}
+        </span>
+        <span>На модерации</span>
+        <span>{s.tasks.moderation}</span>
+        <span>Допущено к оплате / оплачено</span>
+        <span>
+          {s.tasks.approved} / {s.tasks.paid}
+        </span>
+        <span>Отклонено</span>
+        <span>{s.tasks.rejected}</span>
+        <span>Качество</span>
+        <span>
+          {s.quality.percent === null ? "—" : `${s.quality.percent}%`}, {s.quality.reviewed_units} проверенных ед.
+          {s.quality.small_sample ? " (малая выборка)" : ""}
+        </span>
+        <span>Рабочие дни</span>
+        <span>{s.newbie.is_regular ? `действующий с ${s.newbie.transition_date}` : `новичок ${s.newbie.label}`}</span>
+        {s.referrer && (
+          <>
+            <span>Пригласил</span>
+            <span>{s.referrer}</span>
+          </>
+        )}
+        {s.training_status !== "none" && (
+          <>
+            <span>Обучение</span>
+            <span>
+              {s.training_status === "completed" ? "завершено" : "идёт"}
+              {s.training.map((t) => ` · ${t.product}: ${t.confirmed_units}/${t.volume}`).join("")}
+            </span>
+          </>
+        )}
+        {s.memberships.map((m) => (
+          <span key={m.group} style={{ display: "contents" }}>
+            <span>{m.group}</span>
+            <span>{MS[m.status] ?? m.status}</span>
+          </span>
+        ))}
       </div>
     </>
   );

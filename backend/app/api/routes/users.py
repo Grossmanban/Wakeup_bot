@@ -22,16 +22,24 @@ from app.errors import AppError
 from app.models import (
     AccountStatus,
     AuditEvent,
+    GroupMembership,
     NameChangeRequest,
     Network,
     RequestStatus,
     Role,
     Supervision,
+    Task,
+    TaskStatus,
+    TgGroup,
     User,
     UserNetwork,
     UserPermission,
 )
 from app.permissions import PERM_TITLES, Perm
+from app.services import candidates as candidates_svc
+from app.services import groups as groups_svc
+from app.services import moderation
+from app.services import settings as settings_svc
 from app.services import users as users_svc
 from app.services.access import get_target
 
@@ -181,3 +189,53 @@ async def user_history(
         .limit(limit)
     )
     return list(rows.scalars())
+
+
+@router.get("/users/{user_id}/summary")
+async def user_summary(user_id: int, session: SessionDep, actor: ActorDep):
+    """Сводка для карточки сотрудника (ТЗ 3): задания, качество, обучение, группы, реферал."""
+    user = await get_target(session, actor, Perm.USERS_VIEW, user_id)
+    counts = dict(
+        (
+            await session.execute(
+                select(Task.status, func.count())
+                .where(Task.assignee_id == user.id)
+                .group_by(Task.status)
+            )
+        ).all()
+    )
+    q = await moderation.quality(session, user_ids=[user.id])
+    referrer = await session.get(User, user.referred_by_id) if user.referred_by_id else None
+    memberships = [
+        {"group": g.title, "purpose": g.purpose, "status": m.status if m else "unknown"}
+        for g, m in (
+            await session.execute(
+                select(TgGroup, GroupMembership)
+                .outerjoin(
+                    GroupMembership,
+                    (GroupMembership.group_id == TgGroup.id) & (GroupMembership.user_id == user.id),
+                )
+                .order_by(TgGroup.title)
+            )
+        ).all()
+    ]
+    days = await groups_svc.worked_days(session, [user.id])
+    return {
+        "tasks": {
+            "total": sum(counts.values()),
+            "active": counts.get(TaskStatus.ACTIVE, 0),
+            "manual_review": counts.get(TaskStatus.MANUAL_REVIEW, 0),
+            "moderation": counts.get(TaskStatus.MODERATION, 0),
+            "approved": counts.get(TaskStatus.APPROVED, 0),
+            "paid": counts.get(TaskStatus.PAID, 0),
+            "rejected": counts.get(TaskStatus.REJECTED, 0),
+        },
+        "quality": q.as_dict(await settings_svc.get(session, "min_sample_units")),
+        "training_status": user.training_status,
+        "training": await candidates_svc.training_progress(session, user.id)
+        if user.training_status != "none"
+        else [],
+        "newbie": groups_svc.progress_from_days(days.get(user.id, [])),
+        "memberships": memberships,
+        "referrer": referrer.full_name if referrer else None,
+    }

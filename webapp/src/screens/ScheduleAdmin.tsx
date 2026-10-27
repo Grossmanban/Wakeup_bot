@@ -408,6 +408,10 @@ export function Points() {
 }
 
 interface SettingsData {
+  candidate_skills: string[];
+  pd_consent_version: string;
+  pd_consent_url: string;
+  candidate_contact_template: string;
   min_shifts_per_week: number;
   schedule_visibility: "own" | "busy" | "full";
   daily_summary_time: string;
@@ -475,6 +479,36 @@ export function SettingsScreen() {
           }}
         />
       </Field>
+      <h2>Анкета кандидата</h2>
+      <Field label="Навыки для самооценки 1–10 (по строке)">
+        <textarea
+          defaultValue={v.candidate_skills.join("\n")}
+          onBlur={(e) => {
+            const list = e.target.value.split("\n").map((x) => x.trim()).filter(Boolean);
+            if (list.join("|") !== v.candidate_skills.join("|")) patch({ candidate_skills: list });
+          }}
+        />
+      </Field>
+      <Field label="Версия согласия на обработку персональных данных">
+        <input
+          defaultValue={v.pd_consent_version}
+          onBlur={(e) => e.target.value !== v.pd_consent_version && patch({ pd_consent_version: e.target.value })}
+        />
+      </Field>
+      <Field label="Ссылка на текст согласия">
+        <input
+          defaultValue={v.pd_consent_url}
+          placeholder="https://"
+          onBlur={(e) => e.target.value !== v.pd_consent_url && patch({ pd_consent_url: e.target.value })}
+        />
+      </Field>
+      <Field label="Шаблон сообщения кандидату ({name}, {responsible}, {contact})">
+        <textarea
+          defaultValue={v.candidate_contact_template}
+          onBlur={(e) => e.target.value !== v.candidate_contact_template && patch({ candidate_contact_template: e.target.value })}
+        />
+      </Field>
+      <h2>Статистика</h2>
       <Field label="Малая выборка для качества, единиц">
         <input
           type="number"
